@@ -7,7 +7,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.fluentread.WelcomeScreen
 import com.example.fluentread.screens.*
 import com.example.fluentread.viewmodel.UserViewModel
 
@@ -17,7 +16,6 @@ fun NavGraph(navController: NavHostController) {
     val startDestination = if (userViewModel.userId != null) "main" else "register"
 
     NavHost(navController = navController, startDestination = startDestination) {
-        composable("welcome") { WelcomeScreen(navController) }
         composable("login") { LoginScreen(navController) }
         composable("register") { RegisterScreen(navController) }
         composable("forgot_password") { ForgotPasswordScreen(navController) }
@@ -29,5 +27,40 @@ fun NavGraph(navController: NavHostController) {
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
             BookDetailsScreen(navController, bookId, userViewModel)
         }
+        composable(
+            route = "screen_read?bookId={bookId}&chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType; nullable = true },
+                navArgument("chapter") { type = NavType.StringType; nullable = true }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId")
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            ReadScreen(bookId = bookId, chapter = chapter, userViewModel = userViewModel)
+        }
+        composable(
+            route = "screen_chat?bookId={bookId}&chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType; nullable = true },
+                navArgument("chapter") { type = NavType.StringType; nullable = true }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId")
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            ChatScreen(bookId = bookId, chapter = chapter, userViewModel = userViewModel)
+        }
+
+        composable(
+            route = "screen_flashcards?bookId={bookId}&chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType; nullable = true },
+                navArgument("chapter") { type = NavType.StringType; nullable = true }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId")
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            FlashcardsScreen(bookId = bookId, chapter = chapter, userViewModel = userViewModel)
+        }
+
     }
 }

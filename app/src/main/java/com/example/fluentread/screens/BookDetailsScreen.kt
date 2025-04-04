@@ -45,6 +45,15 @@ import com.example.fluentread.ui.theme.FluentSurfaceDark
 import com.example.fluentread.ui.theme.FluentTypography
 import com.example.fluentread.viewmodel.UserViewModel
 import kotlinx.coroutines.tasks.await
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 
 @Composable
 fun BookDetailsScreen(navController: NavHostController, bookId: String, userViewModel: UserViewModel) {
@@ -52,23 +61,26 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
     val db = userViewModel.db
     var currentTitle by remember { mutableStateOf("Tytuł książki") }
     var currentAuthor by remember { mutableStateOf("Autor książki") }
+    var chapters by remember { mutableStateOf<List<Double>>(emptyList()) }
+    var expandedChapter by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(Unit) {
         if (userId != null) {
             try {
-                val lastRead = db.collection("books").document(bookId)
-                if (lastRead != null) {
-                    val bookSnapshot = lastRead.get().await()
-                    currentTitle = bookSnapshot.getString("title") ?: "Tytuł nieznany"
-                    currentAuthor = bookSnapshot.getString("author") ?: "Autor nieznany"
-                }
+                val bookRef = db.collection("books").document(bookId)
+                val bookSnapshot = bookRef.get().await()
+                currentTitle = bookSnapshot.getString("title") ?: "Tytuł nieznany"
+                currentAuthor = bookSnapshot.getString("author") ?: "Autor nieznany"
+
+                val chaptersSnapshot = bookRef.collection("chapters").get().await()
+                chapters = chaptersSnapshot.documents.mapNotNull { it.getDouble("number") }
+
             } catch (e: Exception) {
-                Log.e(
-                    "BookDetailsScreen",
-                    "Błąd podczas pobierania lastRead: ${e.localizedMessage}"
-                )
+                Log.e("BookDetailsScreen", "Błąd podczas pobierania danych: ${e.localizedMessage}")
             }
         }
     }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -123,13 +135,101 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        Box(
+        Column(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
-                .height(2.dp)
-                .background(FluentSecondaryDark)
-                .padding(16.dp)
-        )
+                .padding(top = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            chapters.forEach { chapterNumber ->
+                val chapterName = "Chapter ${chapterNumber.toInt()}"
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = FluentBackgroundDark
+                            )
+                            .clickable {
+                                expandedChapter = if (expandedChapter == chapterName) null else chapterName
+                            }
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = chapterName,
+                            color = Color.White,
+                            style = FluentTypography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = expandedChapter == chapterName,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .fillMaxWidth()
+                                .background(
+                                    color = FluentBackgroundDark
+                                )
+                                .padding(12.dp)
+                        ) {
+                            listOf("Read", "Chat", "Flashcards").forEach { action ->
+                                val iconRes = when (action) {
+                                    "Read" -> R.drawable.book_text_icon
+                                    "Chat" -> R.drawable.chat_text_icon
+                                    "Flashcards" -> R.drawable.flashcard_text_icon
+                                    else -> R.drawable.ic_launcher_foreground // fallback
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp)
+                                        .background(
+                                            color = FluentSurfaceDark,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable {
+                                            navController.navigate("screen_${action.lowercase()}?bookId=$bookId&chapter=${chapterNumber.toInt()}")
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = iconRes),
+                                            contentDescription = "$action Icon",
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .padding(end = 12.dp)
+                                        )
+                                        Text(
+                                            text = action,
+                                            color = Color.White,
+                                            style = FluentTypography.bodyMedium,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+
+                        }
+                    }
+                }
+            }
+
+        }
+
 
         Spacer(modifier = Modifier.height(24.dp))
 
