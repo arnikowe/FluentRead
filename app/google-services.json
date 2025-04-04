@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "483402502785",
+    "project_id": "fluentread-1ac08",
+    "storage_bucket": "fluentread-1ac08.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:483402502785:android:23b82720df002b4b3fb380",
+        "android_client_info": {
+          "package_name": "com.example.fluentread"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6Gz3j7Go7-jBWZv9yX1BfeMEzkiSM7A8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
