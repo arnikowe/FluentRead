@@ -1,34 +1,33 @@
 package com.example.fluentread.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.fluentread.WelcomeScreen
-import com.example.fluentread.screens.BookDetailsScreen
-import com.example.fluentread.screens.ForgotPasswordScreen
-import com.example.fluentread.screens.LoginScreen
-import com.example.fluentread.screens.MainScreen
-import com.example.fluentread.screens.RegisterScreen
-
+import com.example.fluentread.screens.*
+import com.example.fluentread.viewmodel.UserViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = "register") {
+    val userViewModel: UserViewModel = viewModel()
+    val startDestination = if (userViewModel.userId != null) "main" else "register"
+
+    NavHost(navController = navController, startDestination = startDestination) {
         composable("welcome") { WelcomeScreen(navController) }
         composable("login") { LoginScreen(navController) }
-        composable("register") { RegisterScreen(navController = navController) }
+        composable("register") { RegisterScreen(navController) }
         composable("forgot_password") { ForgotPasswordScreen(navController) }
-        composable("main") { MainScreen(navController) }
+        composable("main") { MainScreen(navController, userViewModel) }
         composable(
-            route = "bookDetails/{index}",
-            arguments = listOf(navArgument("index") { type = NavType.IntType })
+            route = "bookDetails/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val index = backStackEntry.arguments?.getInt("index") ?: 0
-            BookDetailsScreen(navController = navController, index = index)
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            BookDetailsScreen(navController, bookId, userViewModel)
         }
-
     }
 }

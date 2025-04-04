@@ -34,7 +34,7 @@ fun RegisterScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-                .imePadding(), // zapobiega zasłanianiu przez klawiaturę
+                .imePadding(),
             horizontalAlignment = Alignment.Start
         ) {
             Text(
@@ -102,9 +102,6 @@ fun RegisterScreen(navController: NavController) {
 }
 
 
-/**
- * Rejestracja użytkownika w Firebase Authentication i zapisanie danych w Firestore.
- */
 fun registerUser(
     auth: FirebaseAuth,
     db: FirebaseFirestore,
@@ -129,7 +126,7 @@ fun registerUser(
                         .set(userData, SetOptions.merge())
                         .addOnSuccessListener {
                             Toast.makeText(navController.context, "Rejestracja zakończona sukcesem!", Toast.LENGTH_LONG).show()
-                            navController.navigate("login") // Przekierowanie do ekranu logowania
+                            navController.navigate("login")
                         }
                         .addOnFailureListener { e ->
                             Toast.makeText(navController.context, "Błąd zapisu danych: ${e.message}", Toast.LENGTH_LONG).show()

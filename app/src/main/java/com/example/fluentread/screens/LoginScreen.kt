@@ -31,7 +31,7 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-                .imePadding(), // uwzględnia klawiaturę ekranową
+                .imePadding(),
             horizontalAlignment = Alignment.Start
         ) {
             Text(
@@ -103,10 +103,6 @@ fun LoginScreen(navController: NavController) {
     }
 }
 
-
-/**
- * Logowanie użytkownika w Firebase Authentication.
- */
 fun loginUser(
     auth: FirebaseAuth,
     email: String,
@@ -118,7 +114,7 @@ fun loginUser(
         .addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 Toast.makeText(navController.context, "Zalogowano pomyślnie!", Toast.LENGTH_LONG).show()
-                navController.navigate("main") // Przekierowanie do ekranu głównego
+                navController.navigate("main")
             } else {
                 Toast.makeText(navController.context, "Błąd logowania: ${task.exception?.message}", Toast.LENGTH_LONG).show()
             }
