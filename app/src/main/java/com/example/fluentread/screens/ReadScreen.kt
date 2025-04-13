@@ -36,111 +36,57 @@ import kotlinx.coroutines.tasks.await
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) {
-    val userId = userViewModel.userId
-    val db = userViewModel.db
-
-
-    var currentTitle by remember { mutableStateOf("Tytuł książki") }
-    var chapterContent by remember { mutableStateOf("") }
-    var selectedWord by remember { mutableStateOf<String?>(null) }
-    var isBookmarked by remember { mutableStateOf(false) }
+    val userId = userViewModel.userId ?: return
+    val context = LocalContext.current
     val scrollState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
+    var selectedWord by remember { mutableStateOf<String?>(null) }
+    var manuallyBookmarked by remember { mutableStateOf(false) }
     var scrollRestored by remember { mutableStateOf(false) }
     var lastSavedOffset by remember { mutableStateOf(-1) }
-    var manuallyBookmarked by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
 
+    val title = userViewModel.currentTitle
+    val content = userViewModel.chapterContent
+    val isBookmarked = userViewModel.isBookmarked
 
+    // Ładowanie treści
+    LaunchedEffect(bookId, chapter) {
+        if (bookId != null && chapter != null) {
+            userViewModel.loadChapter(bookId, chapter)
+        }
+    }
 
-    // Ładowanie danych książki i rozdziału
-    LaunchedEffect(Unit) {
-        if (userId != null && bookId != null && chapter != null) {
-            try {
-                val bookRef = db.collection("books").document(bookId)
-                val chapterRef = bookRef.collection("chapters").document(chapter)
-
-                val (bookSnapshot, chapterSnapshot) = listOf(
-                    bookRef.get(),
-                    chapterRef.get()
-                ).map { it.await() }
-
-                currentTitle = bookSnapshot.getString("title") ?: "Tytuł nieznany"
-                chapterContent = chapterSnapshot.getString("content") ?: ""
-
-            } catch (e: Exception) {
-                Log.e("ReadScreen", "Błąd podczas pobierania danych: ${e.localizedMessage}")
+    // Przywracanie zakładki
+    LaunchedEffect(content) {
+        if (bookId != null && chapter != null && content.isNotBlank()) {
+            userViewModel.checkBookmark(bookId, chapter, userId) { offset ->
+                coroutineScope.launch {
+                    scrollState.scrollToItem(0, offset)
+                    lastSavedOffset = offset
+                    scrollRestored = true
+                }
             }
         }
     }
 
-    LaunchedEffect(chapterContent) {
-        if (userId != null && bookId != null && chapter != null && chapterContent.isNotBlank()) {
-            val bookmarkSnap = db.collection("books")
-                .document(bookId)
-                .collection("chapters").document(chapter)
-                .collection("bookmarks").document(userId)
-                .get()
-                .await()
-
-            if (bookmarkSnap.exists()) {
-                isBookmarked = true
-                val offset = bookmarkSnap.getLong("scrollOffset")?.toInt() ?: 0
-                scrollState.scrollToItem(0, offset)
-                lastSavedOffset = offset
-            }
-            scrollRestored = true
-        }
-    }
-
+    // Auto-zapisywanie zakładki
     LaunchedEffect(scrollState.firstVisibleItemScrollOffset) {
         val newOffset = scrollState.firstVisibleItemScrollOffset
-        if (
-            scrollRestored &&
-            userId != null &&
-            bookId != null &&
-            chapter != null &&
-            kotlin.math.abs(newOffset - lastSavedOffset) > 50 &&
-            isBookmarked &&
-            manuallyBookmarked // tylko jeśli użytkownik dodał zakładkę ręcznie
-        )
-        {
-            db.collection("books").document(bookId)
-                .collection("chapters").document(chapter)
-                .collection("bookmarks").document(userId)
-                .set(
-                    mapOf(
-                        "chapter" to chapter,
-                        "scrollOffset" to newOffset,
-                        ("preview" to chapterContent.split(Regex("[.!?]"))
-                            .firstOrNull()?.take(100) ?: chapterContent.take(100)) as Pair<Any, Any>,
-                        "timestamp" to System.currentTimeMillis()
-                    )
-                )
+        if (scrollRestored && manuallyBookmarked && kotlin.math.abs(newOffset - lastSavedOffset) > 50) {
+            userViewModel.toggleBookmark(bookId!!, chapter!!, userId, newOffset, content)
             lastSavedOffset = newOffset
         }
     }
 
-
-
-
-    // Annotated text – każde słowo osobno oznaczone
-    val wordsWithIndices = remember(chapterContent) {
-        Regex("\\S+").findAll(chapterContent).map { it.range.first to it.value }.toList()
-    }
-
-    val annotatedText = remember(chapterContent, selectedWord) {
+    val annotatedText = remember(content, selectedWord) {
+        val wordsWithIndices = Regex("\\S+").findAll(content).map { it.range.first to it.value }.toList()
         buildAnnotatedString {
             var lastIndex = 0
             for ((index, word) in wordsWithIndices) {
-                if (index > lastIndex) {
-                    append(chapterContent.substring(lastIndex, index))
-                }
-
+                if (index > lastIndex) append(content.substring(lastIndex, index))
                 val clean = word.trim { it.isWhitespace() || it in ".:,!?\"()[]" }
-
                 pushStringAnnotation(tag = "WORD", annotation = word)
-//podkreślanie klikniętego słow - rozważyć
                 withStyle(
                     SpanStyle(
                         color = if (clean == selectedWord) Color.Black else Color.White,
@@ -153,158 +99,124 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 pop()
                 lastIndex = index + word.length
             }
-
-            if (lastIndex < chapterContent.length) {
-                append(chapterContent.substring(lastIndex))
-            }
+            if (lastIndex < content.length) append(content.substring(lastIndex))
         }
     }
 
-
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(FluentSurfaceDark)
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize().background(FluentSurfaceDark),
         topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = currentTitle,
-                        style = FluentTypography.titleLarge,
-                        color = Color.White
-                    )
-                },
+            TopAppBar(
+                title = { Text(title, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { /* menu */ }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_menu),
-                            contentDescription = "Menu",
-                            tint = Color.White
-                        )
+                        Icon(painterResource(R.drawable.ic_menu), contentDescription = null, tint = Color.White)
                     }
                 },
                 actions = {
                     IconButton(onClick = {
                         manuallyBookmarked = true
-                        if (userId != null && bookId != null && chapter != null) {
-                            val ref = db.collection("books").document(bookId)
-                                .collection("chapters").document(chapter)
-                                .collection("bookmarks").document(userId)
-
-                            if (isBookmarked) {
-                                ref.delete()
-                                isBookmarked = false
-                            } else {
-                                val offset = scrollState.firstVisibleItemScrollOffset
-                                val previewText = chapterContent.split(Regex("[.!?]"))
-                                    .firstOrNull()?.take(100) ?: chapterContent.take(100)
-
-
-                                ref.set(
-                                    mapOf(
-                                        "chapter" to chapter,
-                                        "scrollOffset" to offset,
-                                        "preview" to previewText,
-                                        "timestamp" to System.currentTimeMillis()
-                                    )
-                                )
-                                isBookmarked = true
-                            }
-                        }
+                        userViewModel.toggleBookmark(bookId!!, chapter!!, userId, scrollState.firstVisibleItemScrollOffset, content)
                     }) {
                         Icon(
-                            painter = painterResource(
-                                id = if (isBookmarked) R.drawable.ic_bookmark_full else R.drawable.ic_bookmark
+                            painterResource(
+                                if (isBookmarked) R.drawable.ic_bookmark_full else R.drawable.ic_bookmark
                             ),
-                            contentDescription = if (isBookmarked) "Usuń zakładkę" else "Dodaj zakładkę",
+                            contentDescription = null,
                             tint = Color.White
                         )
                     }
                 },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = FluentBackgroundDark
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = FluentBackgroundDark)
             )
         },
         containerColor = FluentSurfaceDark
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+            modifier = Modifier.padding(paddingValues).padding(16.dp),
             state = scrollState
         ) {
             item {
                 Text(
                     text = "Chapter ${chapter ?: "?"}",
-                    style = FluentTypography.titleMedium,
                     color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    style = FluentTypography.titleMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
             item {
                 ClickableText(
                     text = annotatedText,
-                    style = FluentTypography.bodyLarge.copy(
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp,
-                        textAlign = TextAlign.Justify,
-                        color = Color.White
-                    ),
+                    style = FluentTypography.bodyLarge.copy(lineHeight = 24.sp, textAlign = TextAlign.Justify),
                     onClick = { offset ->
                         annotatedText.getStringAnnotations("WORD", offset, offset)
-                            .firstOrNull()?.let { annotation ->
-                                val cleanWord = annotation.item.trim { it.isWhitespace() || it in ".:,!?\"()[]" }
-                                selectedWord = cleanWord
+                            .firstOrNull()?.let {
+                                selectedWord = it.item.trim { it.isWhitespace() || it in ".:,!?\"()[]" }
                             }
                     }
                 )
             }
         }
     }
+
+    // AlertDialog dla słowa
     if (selectedWord != null) {
+        var translation by remember { mutableStateOf("") }
+        var note by remember { mutableStateOf("") }
+
+        // Automatyczne tłumaczenie słowa
+        LaunchedEffect(selectedWord) {
+            userViewModel.translateWord(selectedWord!!) { result ->
+                translation = result
+            }
+        }
+
         AlertDialog(
-            onDismissRequest = { selectedWord = null },
+            onDismissRequest = {
+                selectedWord = null
+                translation = ""
+                note = ""
+            },
             title = { Text("Słowo: $selectedWord") },
-            text = { Text("Tutaj możesz dodać tłumaczenie, definicję lub inne akcje.") },
+            text = {
+                Column {
+                    Text("Tłumaczenie: ${if (translation.isNotBlank()) translation else "Ładowanie..."}")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("Twoja notatka") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
             confirmButton = {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     TextButton(onClick = {
-                        if (userId != null && bookId != null && chapter != null) {
-                            val word = selectedWord!!.lowercase()
-                            val flashcardRef = db.collection("books")
-                                .document(bookId)
-                                .collection("chapters")
-                                .document(chapter)
-                                .collection("flashcards")
-                                .document(word)
-
-                            coroutineScope.launch {
-                                try {
-                                    val snapshot = flashcardRef.get().await()
-                                    if (!snapshot.exists()) {
-                                        flashcardRef.set(mapOf("word" to word))
-                                        Toast.makeText(context, "Dodano do fiszek", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "To słowo już istnieje w fiszkach", Toast.LENGTH_SHORT).show()
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e("FlashcardAdd", "Błąd podczas dodawania fiszki: ${e.localizedMessage}")
-                                    Toast.makeText(context, "Błąd podczas dodawania", Toast.LENGTH_SHORT).show()
-                                }
+                        userViewModel.saveFlashcard(
+                            bookId!!,
+                            chapter!!,
+                            userId,
+                            selectedWord!!.lowercase(),
+                            translation,
+                            note,
+                            onSuccess = {
+                                Toast.makeText(context, "Dodano do fiszek", Toast.LENGTH_SHORT).show()
+                                selectedWord = null
+                                translation = ""
+                                note = ""
+                            },
+                            onError = {
+                                Toast.makeText(context, "Błąd przy dodawaniu", Toast.LENGTH_SHORT).show()
+                                selectedWord = null
                             }
-                        }
-                        selectedWord = null
+                        )
                     }) {
                         Text("Dodaj")
                     }
@@ -315,7 +227,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 }
             }
         )
+
     }
-
-
 }

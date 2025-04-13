@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "483402502785",
+    "firebase_url": "https://fluentread-1ac08-default-rtdb.europe-west1.firebasedatabase.app",
     "project_id": "fluentread-1ac08",
     "storage_bucket": "fluentread-1ac08.firebasestorage.app"
   },
@@ -15,7 +16,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": ""
+          "current_key": "AIzaSyC6Gz3j7Go7-jBWZv9yX1BfeMEzkiSM7A8"
         }
       ],
       "services": {

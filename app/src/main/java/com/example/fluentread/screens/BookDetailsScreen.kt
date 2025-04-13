@@ -57,36 +57,21 @@ import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun BookDetailsScreen(navController: NavHostController, bookId: String, userViewModel: UserViewModel) {
-    val userId = userViewModel.userId
-    val db = userViewModel.db
-    var currentTitle by remember { mutableStateOf("Tytuł książki") }
-    var currentAuthor by remember { mutableStateOf("Autor książki") }
-    var chapters by remember { mutableStateOf<List<Double>>(emptyList()) }
     var expandedChapter by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        if (userId != null) {
-            try {
-                val bookRef = db.collection("books").document(bookId)
-                val bookSnapshot = bookRef.get().await()
-                currentTitle = bookSnapshot.getString("title") ?: "Tytuł nieznany"
-                currentAuthor = bookSnapshot.getString("author") ?: "Autor nieznany"
-
-                val chaptersSnapshot = bookRef.collection("chapters").get().await()
-                chapters = chaptersSnapshot.documents.mapNotNull { it.getDouble("number") }
-
-            } catch (e: Exception) {
-                Log.e("BookDetailsScreen", "Błąd podczas pobierania danych: ${e.localizedMessage}")
-            }
-        }
+    LaunchedEffect(bookId) {
+        userViewModel.loadBookDetails(bookId)
     }
+
+    val currentTitle = userViewModel.bookTitle
+    val currentAuthor = userViewModel.bookAuthor
+    val chapters = userViewModel.chapters
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(FluentSurfaceDark)
     ) {
-        // Górny pasek z przyciskiem menu
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -94,7 +79,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                 .height(60.dp)
                 .background(FluentBackgroundDark)
         ) {
-            IconButton(onClick = { /* TODO: obsługa kliknięcia menu */ }) {
+            IconButton(onClick = { /* TODO: menu */ }) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_menu),
                     contentDescription = "Menu"
@@ -105,36 +90,28 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Box(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-
-            Text(
-                text = currentTitle,
-                modifier = Modifier.align(Alignment.Center),
-                textAlign = TextAlign.Center,
-                style = FluentTypography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
+        Text(
+            text = currentTitle,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            textAlign = TextAlign.Center,
+            style = FluentTypography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth()
-        ) {
 
-            Text(
-                text = currentAuthor,
-                modifier = Modifier.align(Alignment.Center),
-                textAlign = TextAlign.Center,
-                style = FluentTypography.titleSmall,
-                fontWeight = FontWeight.Normal,
-                color = FluentSecondaryDark
-            )
-        }
+        Text(
+            text = currentAuthor,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            textAlign = TextAlign.Center,
+            style = FluentTypography.titleSmall,
+            fontWeight = FontWeight.Normal,
+            color = FluentSecondaryDark
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
+
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -143,16 +120,13 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
             chapters.forEach { chapterNumber ->
                 val chapterName = "Chapter ${chapterNumber.toInt()}"
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                color = FluentBackgroundDark
-                            )
+                            .background(color = FluentBackgroundDark)
                             .clickable {
                                 expandedChapter = if (expandedChapter == chapterName) null else chapterName
                             }
@@ -175,9 +149,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                             modifier = Modifier
                                 .padding(top = 8.dp)
                                 .fillMaxWidth()
-                                .background(
-                                    color = FluentBackgroundDark
-                                )
+                                .background(color = FluentBackgroundDark)
                                 .padding(12.dp)
                         ) {
                             listOf("Read", "Chat", "Flashcards").forEach { action ->
@@ -185,8 +157,14 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                     "Read" -> R.drawable.book_text_icon
                                     "Chat" -> R.drawable.chat_text_icon
                                     "Flashcards" -> R.drawable.flashcard_text_icon
-                                    else -> R.drawable.ic_launcher_foreground // fallback
+                                    else -> R.drawable.ic_launcher_foreground
                                 }
+
+                                val route = if (action == "Read")
+                                    "screen_loading_route?bookId=${bookId}&chapter=${chapterNumber.toInt()}"
+                                else
+                                    "screen_${action.lowercase()}?bookId=$bookId&chapter=${chapterNumber.toInt()}"
+
 
                                 Box(
                                     modifier = Modifier
@@ -197,7 +175,16 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                             shape = RoundedCornerShape(8.dp)
                                         )
                                         .clickable {
-                                            navController.navigate("screen_${action.lowercase()}?bookId=$bookId&chapter=${chapterNumber.toInt()}")
+                                            if (action == "Read") {
+                                                navController.navigate(route) {
+                                                    popUpTo("screen_book_details") {
+                                                        inclusive = false
+                                                    }
+                                                    launchSingleTop = true
+                                                }
+                                            } else {
+                                                navController.navigate(route)
+                                            }
                                         }
                                         .padding(horizontal = 12.dp, vertical = 10.dp)
                                 ) {
@@ -216,26 +203,23 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                             text = action,
                                             color = Color.White,
                                             style = FluentTypography.bodyMedium,
-                                            modifier = Modifier
-                                                .weight(1f)
+                                            modifier = Modifier.weight(1f)
                                         )
                                     }
                                 }
                             }
-
                         }
                     }
                 }
             }
-
         }
 
-
         Spacer(modifier = Modifier.height(24.dp))
-
-
     }
 }
+
+
+
 @Preview(showBackground = true)
 @Composable
 fun BookDetailsScreenPreview() {

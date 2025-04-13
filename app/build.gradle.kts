@@ -43,6 +43,14 @@ android {
 }
 
 dependencies {
+    // Tłumaczenia
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+
+    //aniamcje
+    implementation("com.airbnb.android:lottie-compose:6.1.0")
+
+
     implementation("com.google.android.gms:play-services-base:18.2.0")
     //implementation("com.google.android.gms:play-services-providerinstaller:20.0.0")
 
@@ -54,6 +62,8 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-config-ktx")
+
 
     // Compose
     implementation(platform("androidx.compose:compose-bom:2024.02.02"))
@@ -67,6 +77,7 @@ dependencies {
 
     // Cloudinary / Coil
     implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation(libs.translate)
 
     // Debug tools
     debugImplementation("androidx.compose.ui:ui-tooling")
