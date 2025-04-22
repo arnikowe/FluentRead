@@ -49,7 +49,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
 
     val title = userViewModel.currentTitle
     val content = userViewModel.chapterContent
-    val isBookmarked = userViewModel.isBookmarked
+    val isBookmarked by userViewModel::isBookmarked
 
     var translation by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -70,24 +70,16 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
     // Przywracanie zakładki
     LaunchedEffect(content) {
         if (bookId != null && chapter != null && content.isNotBlank()) {
-            userViewModel.checkBookmark(bookId, chapter, userId) { offset ->
+            userViewModel.checkBookmark(bookId, chapter, userId) { index, offset ->
                 coroutineScope.launch {
-                    scrollState.scrollToItem(0, offset)
-                    lastSavedOffset = offset
+                    scrollState.scrollToItem(index, offset)
+                    lastSavedOffset = index * 10000 + offset
                     scrollRestored = true
                 }
             }
         }
     }
 
-    // Auto-zapisywanie zakładki
-    LaunchedEffect(scrollState.firstVisibleItemScrollOffset) {
-        val newOffset = scrollState.firstVisibleItemScrollOffset
-        if (scrollRestored && manuallyBookmarked && kotlin.math.abs(newOffset - lastSavedOffset) > 50) {
-            userViewModel.toggleBookmark(bookId!!, chapter!!, userId, newOffset, content)
-            lastSavedOffset = newOffset
-        }
-    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().background(FluentSurfaceDark),
@@ -101,9 +93,10 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 },
                 actions = {
                     IconButton(onClick = {
-                        manuallyBookmarked = true
-                        userViewModel.toggleBookmark(bookId!!, chapter!!, userId, scrollState.firstVisibleItemScrollOffset, content)
-                    }) {
+                        val index = scrollState.firstVisibleItemIndex
+                        val offset = scrollState.firstVisibleItemScrollOffset
+                        userViewModel.toggleBookmark(bookId!!, chapter!!, userId, index, offset, content)
+                    }){
                         Icon(
                             painterResource(if (isBookmarked) R.drawable.ic_bookmark_full else R.drawable.ic_bookmark),
                             contentDescription = null,
@@ -139,7 +132,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                         for ((index, word) in words) {
                             if (index > lastIndex) append(chunk.substring(lastIndex, index))
 
-                            // 🧹 Oczyść słowo z interpunkcji
                             val clean = word.replace(Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$"""), "")
 
                             pushStringAnnotation(tag = "WORD", annotation = clean)
@@ -197,7 +189,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 note = ""
                 translationRequested = false
             },
-            title = { Text("Tłumaczenie słowa: $selectedWord") }, // pokazujemy oryginalne kliknięcie
+            title = { Text("Tłumaczenie słowa: $selectedWord") },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(
@@ -234,7 +226,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                             bookId!!,
                             chapter!!,
                             userId,
-                            cleanedWord.lowercase(), // zapisujemy oczyszczone słowo
+                            cleanedWord.lowercase(),
                             translation,
                             note,
                             onSuccess = {
@@ -256,6 +248,8 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
 
                     TextButton(onClick = {
                         selectedWord = null
+                        translation = ""
+                        note = ""
                         translationRequested = false
                     }) {
                         Text("Zamknij")
@@ -272,7 +266,6 @@ fun extractSentence(content: String, word: String): String {
     val cleanWord = word.lowercase()
 
     return sentences.firstOrNull { sentence ->
-        // znajdź dopasowanie słowa jako osobnego tokena
         Regex("""\b${Regex.escape(cleanWord)}\b""", RegexOption.IGNORE_CASE)
             .containsMatchIn(sentence)
     }?.trim() ?: word

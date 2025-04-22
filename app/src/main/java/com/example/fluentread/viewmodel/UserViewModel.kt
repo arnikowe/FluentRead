@@ -41,6 +41,9 @@ open class UserViewModel : ViewModel() {
     var isLoading by mutableStateOf(true)
         private set
 
+    var isBookmarked by mutableStateOf(false)
+        private set
+
     init {
         val configSettings = remoteConfigSettings {
             minimumFetchIntervalInSeconds = 3600
@@ -85,9 +88,6 @@ open class UserViewModel : ViewModel() {
     var chapterContent by mutableStateOf("")
         private set
 
-    var isBookmarked by mutableStateOf(false)
-        private set
-
     fun loadChapter(bookId: String, chapter: String) {
         viewModelScope.launch {
             try {
@@ -108,7 +108,50 @@ open class UserViewModel : ViewModel() {
         }
     }
 
-    fun checkBookmark(bookId: String, chapter: String, userId: String, onOffsetLoaded: (Int) -> Unit) {
+    fun toggleBookmark(
+        bookId: String,
+        chapter: String,
+        userId: String,
+        index: Int,
+        offset: Int,
+        content: String
+    ) {
+        viewModelScope.launch {
+            val ref = db.collection("books").document(bookId)
+                .collection("chapters").document(chapter)
+                .collection("bookmarks").document(userId)
+
+            try {
+                if (isBookmarked) {
+                    ref.delete().await()
+                    isBookmarked = false
+                } else {
+                    val previewText = content.split(Regex("[.!?]"))
+                        .firstOrNull()?.take(100) ?: content.take(100)
+
+                    val bookmarkData = mapOf(
+                        "chapter" to chapter,
+                        "itemIndex" to index,
+                        "scrollOffset" to offset,
+                        "preview" to previewText,
+                        "timestamp" to System.currentTimeMillis()
+                    )
+
+                    ref.set(bookmarkData).await()
+                    isBookmarked = true
+                }
+            } catch (e: Exception) {
+                Log.e("UserViewModel", "Błąd przy zapisie/usuaniu zakładki: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun checkBookmark(
+        bookId: String,
+        chapter: String,
+        userId: String,
+        onLoaded: (Int, Int) -> Unit
+    ) {
         viewModelScope.launch {
             try {
                 val snap = db.collection("books")
@@ -120,64 +163,14 @@ open class UserViewModel : ViewModel() {
 
                 if (snap.exists()) {
                     isBookmarked = true
+                    val index = snap.getLong("itemIndex")?.toInt() ?: 0
                     val offset = snap.getLong("scrollOffset")?.toInt() ?: 0
-                    onOffsetLoaded(offset)
+                    onLoaded(index, offset)
+                } else {
+                    isBookmarked = false
                 }
             } catch (e: Exception) {
                 Log.e("UserViewModel", "Błąd ładowania zakładki: ${e.localizedMessage}")
-            }
-        }
-    }
-
-    fun toggleBookmark(bookId: String, chapter: String, userId: String, offset: Int, content: String) {
-        viewModelScope.launch {
-            val ref = db.collection("books").document(bookId)
-                .collection("chapters").document(chapter)
-                .collection("bookmarks").document(userId)
-
-            try {
-                if (isBookmarked) {
-                    ref.delete()
-                    isBookmarked = false
-                } else {
-                    val previewText = content.split(Regex("[.!?]")).firstOrNull()?.take(100)
-                        ?: content.take(100)
-                    ref.set(
-                        mapOf(
-                            "chapter" to chapter,
-                            "scrollOffset" to offset,
-                            "preview" to previewText,
-                            "timestamp" to System.currentTimeMillis()
-                        )
-                    )
-                    isBookmarked = true
-                }
-            } catch (e: Exception) {
-                Log.e("UserViewModel", "Błąd przy zmianie zakładki: ${e.localizedMessage}")
-            }
-        }
-    }
-
-    fun addFlashcard(bookId: String, chapter: String, userId: String, word: String, onSuccess: () -> Unit, onAlreadyExists: () -> Unit, onError: () -> Unit) {
-        viewModelScope.launch {
-            try {
-                val flashcardRef = db.collection("books")
-                    .document(bookId)
-                    .collection("chapters")
-                    .document(chapter)
-                    .collection("flashcards")
-                    .document(word)
-
-                val snapshot = flashcardRef.get().await()
-                if (!snapshot.exists()) {
-                    flashcardRef.set(mapOf("word" to word))
-                    onSuccess()
-                } else {
-                    onAlreadyExists()
-                }
-            } catch (e: Exception) {
-                Log.e("FlashcardAdd", "Błąd: ${e.localizedMessage}")
-                onError()
             }
         }
     }
@@ -191,7 +184,7 @@ open class UserViewModel : ViewModel() {
         val url = "https://api.openai.com/v1/chat/completions"
         val client = OkHttpClient()
 
-        val prompt = """"$word". Przetłumacz "$word" z języka angielskiego na polski w kontekście tego zdania: "$sentence". Zwróć wyłącznie to tłumaczenie."""
+        val prompt = "\"$word\". Przetłumacz \"$word\" z języka angielskiego na polski w kontekście tego zdania: \"$sentence\". Zwróć wyłącznie to tłumaczenie."
 
         val messagesArray = org.json.JSONArray().put(
             JSONObject()
@@ -242,8 +235,6 @@ open class UserViewModel : ViewModel() {
             }
         })
     }
-
-
 
     fun saveFlashcard(
         bookId: String,
