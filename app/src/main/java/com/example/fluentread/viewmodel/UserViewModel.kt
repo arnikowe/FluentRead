@@ -182,29 +182,34 @@ open class UserViewModel : ViewModel() {
         }
     }
 
-    fun translateWord(word: String, onResult: (String) -> Unit) {
+    fun translateWord(word: String, sentence: String, onResult: (String) -> Unit) {
         if (translateApi.isBlank()) {
             onResult("Błąd: Brak klucza API")
             return
         }
 
-        val url = "https://translateai.p.rapidapi.com/google/translate/json"
+        val url = "https://api.openai.com/v1/chat/completions"
         val client = OkHttpClient()
 
-        val content = JSONObject().put("message", word)
+        val prompt = """"$word". Przetłumacz "$word" z języka angielskiego na polski w kontekście tego zdania: "$sentence". Zwróć wyłącznie to tłumaczenie."""
+
+        val messagesArray = org.json.JSONArray().put(
+            JSONObject()
+                .put("role", "user")
+                .put("content", prompt)
+        )
 
         val json = JSONObject()
-            .put("origin_language", "en")
-            .put("target_language", "pl")
-            .put("json_content", content)
+            .put("model", "gpt-3.5-turbo")
+            .put("messages", messagesArray)
+            .put("temperature", 0.3)
 
         val requestBody = json.toString().toRequestBody("application/json".toMediaType())
 
         val request = Request.Builder()
             .url(url)
             .post(requestBody)
-            .addHeader("x-rapidapi-key", translateApi)
-            .addHeader("x-rapidapi-host", "translateai.p.rapidapi.com")
+            .addHeader("Authorization", "Bearer $translateApi")
             .addHeader("Content-Type", "application/json")
             .build()
 
@@ -223,22 +228,22 @@ open class UserViewModel : ViewModel() {
                 }
 
                 try {
-                    val json = JSONObject(responseText)
-                    val translatedText = json
-                        .optJSONObject("translated_json")
-                        ?.optString("message")
-
-                    if (!translatedText.isNullOrBlank()) {
-                        onResult(translatedText)
-                    } else {
-                        onResult("Błąd: brak tłumaczenia")
-                    }
+                    val jsonObject = JSONObject(responseText)
+                    val translation = jsonObject
+                        .getJSONArray("choices")
+                        .getJSONObject(0)
+                        .getJSONObject("message")
+                        .getString("content")
+                        .trim()
+                    onResult(translation)
                 } catch (e: Exception) {
                     onResult("Błąd JSON: ${e.localizedMessage}")
                 }
             }
         })
     }
+
+
 
     fun saveFlashcard(
         bookId: String,

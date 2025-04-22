@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.*
@@ -50,6 +51,15 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
     val content = userViewModel.chapterContent
     val isBookmarked = userViewModel.isBookmarked
 
+    var translation by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var translationRequested by remember { mutableStateOf(false) }
+
+    val textChunks = remember(content) {
+        chunkTextBySentences(content, 1000)
+    }
+
+
     // Ładowanie treści
     LaunchedEffect(bookId, chapter) {
         if (bookId != null && chapter != null) {
@@ -79,30 +89,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
         }
     }
 
-    val annotatedText = remember(content, selectedWord) {
-        val wordsWithIndices = Regex("\\S+").findAll(content).map { it.range.first to it.value }.toList()
-        buildAnnotatedString {
-            var lastIndex = 0
-            for ((index, word) in wordsWithIndices) {
-                if (index > lastIndex) append(content.substring(lastIndex, index))
-                val clean = word.trim { it.isWhitespace() || it in ".:,!?\"()[]" }
-                pushStringAnnotation(tag = "WORD", annotation = word)
-                withStyle(
-                    SpanStyle(
-                        color = if (clean == selectedWord) Color.Black else Color.White,
-                        background = if (clean == selectedWord) FluentSecondaryDark else Color.Transparent,
-                        fontSize = 16.sp
-                    )
-                ) {
-                    append(word)
-                }
-                pop()
-                lastIndex = index + word.length
-            }
-            if (lastIndex < content.length) append(content.substring(lastIndex))
-        }
-    }
-
     Scaffold(
         modifier = Modifier.fillMaxSize().background(FluentSurfaceDark),
         topBar = {
@@ -119,9 +105,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                         userViewModel.toggleBookmark(bookId!!, chapter!!, userId, scrollState.firstVisibleItemScrollOffset, content)
                     }) {
                         Icon(
-                            painterResource(
-                                if (isBookmarked) R.drawable.ic_bookmark_full else R.drawable.ic_bookmark
-                            ),
+                            painterResource(if (isBookmarked) R.drawable.ic_bookmark_full else R.drawable.ic_bookmark),
                             contentDescription = null,
                             tint = Color.White
                         )
@@ -147,30 +131,62 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            item {
+            items(textChunks) { chunk ->
+                val annotated = remember(chunk, selectedWord) {
+                    val words = Regex("\\S+").findAll(chunk).map { it.range.first to it.value }.toList()
+                    buildAnnotatedString {
+                        var lastIndex = 0
+                        for ((index, word) in words) {
+                            if (index > lastIndex) append(chunk.substring(lastIndex, index))
+
+                            // 🧹 Oczyść słowo z interpunkcji
+                            val clean = word.replace(Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$"""), "")
+
+                            pushStringAnnotation(tag = "WORD", annotation = clean)
+                            withStyle(
+                                SpanStyle(
+                                    color = if (clean == selectedWord) Color.Black else Color.White,
+                                    background = if (clean == selectedWord) FluentSecondaryDark else Color.Transparent,
+                                    fontSize = 16.sp
+                                )
+                            ) {
+                                append(word)
+                            }
+                            pop()
+                            lastIndex = index + word.length
+                        }
+                        if (lastIndex < chunk.length) append(chunk.substring(lastIndex))
+                    }
+                }
+
                 ClickableText(
-                    text = annotatedText,
+                    text = annotated,
                     style = FluentTypography.bodyLarge.copy(lineHeight = 24.sp, textAlign = TextAlign.Justify),
                     onClick = { offset ->
-                        annotatedText.getStringAnnotations("WORD", offset, offset)
+                        annotated.getStringAnnotations("WORD", offset, offset)
                             .firstOrNull()?.let {
-                                selectedWord = it.item.trim { it.isWhitespace() || it in ".:,!?\"()[]" }
+                                selectedWord = it.item
+                                Log.d("SelectedWord", "Clicked: ${it.item}")
                             }
                     }
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
+
         }
     }
 
-    // AlertDialog dla słowa
     if (selectedWord != null) {
-        var translation by remember { mutableStateOf("") }
-        var note by remember { mutableStateOf("") }
+        val cleanedWord = selectedWord!!.replace(Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$"""), "")
 
-        // Automatyczne tłumaczenie słowa
-        LaunchedEffect(selectedWord) {
-            userViewModel.translateWord(selectedWord!!) { result ->
-                translation = result
+        LaunchedEffect(cleanedWord, translationRequested) {
+            if (!translationRequested) {
+                translationRequested = true
+                val sentence = extractSentence(content, cleanedWord)
+                Log.d("ExtractedSentence", "Word: $cleanedWord → Sentence: $sentence")
+                userViewModel.translateWord(cleanedWord, sentence) { result ->
+                    translation = result
+                }
             }
         }
 
@@ -179,12 +195,27 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 selectedWord = null
                 translation = ""
                 note = ""
+                translationRequested = false
             },
-            title = { Text("Słowo: $selectedWord") },
+            title = { Text("Tłumaczenie słowa: $selectedWord") }, // pokazujemy oryginalne kliknięcie
             text = {
-                Column {
-                    Text("Tłumaczenie: ${if (translation.isNotBlank()) translation else "Ładowanie..."}")
-                    Spacer(modifier = Modifier.height(8.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = if (translation.isNotBlank()) translation else "Ładowanie...",
+                            style = FluentTypography.titleMedium,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp),
+                            textAlign = TextAlign.Left
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it },
@@ -203,7 +234,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                             bookId!!,
                             chapter!!,
                             userId,
-                            selectedWord!!.lowercase(),
+                            cleanedWord.lowercase(), // zapisujemy oczyszczone słowo
                             translation,
                             note,
                             onSuccess = {
@@ -211,22 +242,59 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                                 selectedWord = null
                                 translation = ""
                                 note = ""
+                                translationRequested = false
                             },
                             onError = {
                                 Toast.makeText(context, "Błąd przy dodawaniu", Toast.LENGTH_SHORT).show()
                                 selectedWord = null
+                                translationRequested = false
                             }
                         )
                     }) {
                         Text("Dodaj")
                     }
 
-                    TextButton(onClick = { selectedWord = null }) {
+                    TextButton(onClick = {
+                        selectedWord = null
+                        translationRequested = false
+                    }) {
                         Text("Zamknij")
                     }
                 }
             }
         )
-
     }
+
+}
+
+fun extractSentence(content: String, word: String): String {
+    val sentences = content.split(Regex("(?<=[.!?])\\s+"))
+    val cleanWord = word.lowercase()
+
+    return sentences.firstOrNull { sentence ->
+        // znajdź dopasowanie słowa jako osobnego tokena
+        Regex("""\b${Regex.escape(cleanWord)}\b""", RegexOption.IGNORE_CASE)
+            .containsMatchIn(sentence)
+    }?.trim() ?: word
+}
+
+
+fun chunkTextBySentences(content: String, maxChunkLength: Int): List<String> {
+    val sentences = content.split(Regex("(?<=[.!?])\\s+"))
+    val chunks = mutableListOf<String>()
+    var currentChunk = StringBuilder()
+
+    for (sentence in sentences) {
+        if ((currentChunk.length + sentence.length) > maxChunkLength) {
+            chunks.add(currentChunk.toString())
+            currentChunk = StringBuilder()
+        }
+        currentChunk.append(sentence).append(" ")
+    }
+
+    if (currentChunk.isNotEmpty()) {
+        chunks.add(currentChunk.toString())
+    }
+
+    return chunks
 }
