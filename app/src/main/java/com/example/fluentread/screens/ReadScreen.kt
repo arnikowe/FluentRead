@@ -38,6 +38,9 @@ import kotlinx.coroutines.tasks.await
 @Composable
 fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) {
     val userId = userViewModel.userId ?: return
+    userViewModel.currentBookId = bookId
+    userViewModel.currentChapter = chapter
+
     val context = LocalContext.current
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -79,6 +82,12 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
             }
         }
     }
+    LaunchedEffect(scrollState.firstVisibleItemIndex, scrollState.firstVisibleItemScrollOffset) {
+        userViewModel.updateReadingPosition(
+            scrollState.firstVisibleItemIndex,
+            scrollState.firstVisibleItemScrollOffset
+        )
+    }
 
 
     Scaffold(
@@ -89,19 +98,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 navigationIcon = {
                     IconButton(onClick = { /* menu */ }) {
                         Icon(painterResource(R.drawable.ic_menu), contentDescription = null, tint = Color.White)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        val index = scrollState.firstVisibleItemIndex
-                        val offset = scrollState.firstVisibleItemScrollOffset
-                        userViewModel.toggleBookmark(bookId!!, chapter!!, userId, index, offset, content)
-                    }){
-                        Icon(
-                            painterResource(if (isBookmarked) R.drawable.ic_bookmark_full else R.drawable.ic_bookmark),
-                            contentDescription = null,
-                            tint = Color.White
-                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = FluentBackgroundDark)

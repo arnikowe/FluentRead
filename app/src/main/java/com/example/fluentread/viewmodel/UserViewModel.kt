@@ -52,6 +52,21 @@ open class UserViewModel : ViewModel() {
         fetchRemoteConfig()
     }
 
+    var currentChapter by mutableStateOf<String?>(null)
+    var currentBookId by mutableStateOf<String?>(null)
+
+    var readScrollIndex by mutableStateOf(0)
+        private set
+
+    var readScrollOffset by mutableStateOf(0)
+        private set
+
+    fun updateReadingPosition(index: Int, offset: Int) {
+        readScrollIndex = index
+        readScrollOffset = offset
+    }
+
+
     private fun fetchRemoteConfig() {
         remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
             if (task.isSuccessful) {
@@ -117,6 +132,8 @@ open class UserViewModel : ViewModel() {
         content: String
     ) {
         viewModelScope.launch {
+            Log.d("Bookmark", "Zapisuję zakładkę dla $bookId/$chapter user=$userId, index=$index, offset=$offset")
+
             val ref = db.collection("books").document(bookId)
                 .collection("chapters").document(chapter)
                 .collection("bookmarks").document(userId)

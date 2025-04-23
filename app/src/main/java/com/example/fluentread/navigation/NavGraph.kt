@@ -1,6 +1,7 @@
 package com.example.fluentread.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -11,7 +12,7 @@ import com.example.fluentread.screens.*
 import com.example.fluentread.viewmodel.UserViewModel
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
     val userViewModel: UserViewModel = viewModel()
     val startDestination = if (userViewModel.userId != null) "main" else "register"
 
