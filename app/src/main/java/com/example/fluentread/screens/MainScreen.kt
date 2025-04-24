@@ -194,7 +194,8 @@ fun CurrentReadingBooks(navController: NavController, userViewModel: UserViewMod
                                 cover = snapshot.getString("cover") ?: "",
                                 author = snapshot.getString("author") ?: "Nieznany autor",
                                 genre = (snapshot.get("genre") as? List<*>)?.filterIsInstance<String>()?.toTypedArray() ?: emptyArray(),
-                                level = snapshot.getString("level") ?: ""
+                                level = snapshot.getString("level") ?: "",
+                                wordCount = 0.0
                             )
                         } else {
                             Log.w("FirestoreDebug", "Book document does not exist: ${docRef.path}")

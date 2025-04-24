@@ -6,5 +6,6 @@ data class Book(
     val cover: String,
     val author: String,
     val genre: Array<String>,
-    val level: String
+    val level: String,
+    val wordCount: Double
 )

@@ -52,16 +52,14 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
 
         composable(
-            route = "screen_flashcards?bookId={bookId}&chapter={chapter}",
-            arguments = listOf(
-                navArgument("bookId") { type = NavType.StringType; nullable = true },
-                navArgument("chapter") { type = NavType.StringType; nullable = true }
+            route = "screen_flashcards",
+        ) {
+            FlashcardsScreen(
+                userViewModel = userViewModel,
+                navController = navController
             )
-        ) { backStackEntry ->
-            val bookId = backStackEntry.arguments?.getString("bookId")
-            val chapter = backStackEntry.arguments?.getString("chapter")
-            FlashcardsScreen(bookId = bookId, chapter = chapter, userViewModel = userViewModel)
         }
+
         composable(
             route = "screen_loading_route?bookId={bookId}&chapter={chapter}",
             arguments = listOf(
