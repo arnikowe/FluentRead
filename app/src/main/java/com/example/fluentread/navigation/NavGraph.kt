@@ -72,6 +72,10 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
 
             LoadingTransitionScreen(navController, bookId, chapter)
         }
+        composable("flashcard_set/{bookId}") { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            FlashcardSetScreen(bookId, userViewModel, navController)
+        }
 
 
 

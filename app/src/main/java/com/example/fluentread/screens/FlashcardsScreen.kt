@@ -20,6 +20,7 @@ import androidx.compose.material.icons.*
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.ui.unit.sp
+import com.example.fluentread.R
 import com.example.fluentread.viewmodel.UserViewModel
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -38,13 +39,35 @@ fun FlashcardsScreen(
 
     LaunchedEffect(Unit) {
         isLoading = true
-        val flashcardDocs = db.collection("users").document(userId).collection("flashcards")
+
+        val flashcardDocs = db.collection("users").document(userId)
+            .collection("flashcards")
             .get().await().documents
+
+        val favoriteSnap = db.collection("users").document(userId)
+            .collection("flashcards").document("favorite").get().await()
+
+        val favoriteIds = (favoriteSnap.get("ids") as? List<String>) ?: emptyList()
 
         val bookIdToCount = flashcardDocs.groupingBy { it.getString("bookId") ?: "" }
             .eachCount()
 
         val bookList = mutableListOf<Triple<Book, Int, String>>()
+
+        // Dodaj ulubione jako osobny "zestaw"
+        if (favoriteIds.isNotEmpty()) {
+            val favBook = Book(
+                id = "favorites",
+                title = "Ulubione",
+                author = "",
+                cover = "", // lokalna okładka w UI
+                genre = arrayOf(),
+                level = "",
+                wordCount = favoriteIds.size.toDouble()
+            )
+            bookList.add(Triple(favBook, favoriteIds.size, "favorites"))
+        }
+
         for ((bookIdKey, count) in bookIdToCount) {
             try {
                 val doc = db.collection("books").document(bookIdKey).get().await()
@@ -60,12 +83,14 @@ fun FlashcardsScreen(
                 bookList.add(Triple(book, count, bookIdKey))
             } catch (_: Exception) {}
         }
+
         bookStats = bookList
         isLoading = false
     }
 
+
     Column(modifier = Modifier.fillMaxSize().background(FluentSurfaceDark) .padding(15.dp)) {
-        Spacer(modifier = Modifier.height(55.dp))
+        Spacer(modifier = Modifier.height(65.dp))
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -93,21 +118,20 @@ fun FlashcardsScreen(
 
                 items(filtered) { item ->
                     val (book, count, id) = item
-
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(FluentBackgroundDark)
                             .padding(vertical = 8.dp)
                             .clickable {
-                                navController.navigate("screen_flashcards?bookId=${id}")
+                                navController.navigate("flashcard_set/${id}")
                             },
                         elevation = CardDefaults.cardElevation(),
                         colors = CardDefaults.cardColors(containerColor = FluentBackgroundDark)
                     ) {
                         Row(modifier = Modifier.padding(4.dp)) {
                             AsyncImage(
-                                model = book.cover,
+                                model = if (book.id == "favorites") R.drawable.book_cover else book.cover,
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(100.dp)
