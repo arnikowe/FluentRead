@@ -49,7 +49,7 @@ fun DrawerContent(onItemClick: (String) -> Unit) {
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Górne ikony w prawym rogu
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -75,7 +75,6 @@ fun DrawerContent(onItemClick: (String) -> Unit) {
 
             }
 
-            // Logo
             Image(
                 painter = painterResource(R.drawable.bookworm),
                 contentDescription = "Logo",
@@ -85,7 +84,6 @@ fun DrawerContent(onItemClick: (String) -> Unit) {
                     .padding(16.dp)
             )
 
-            // Menu items z indywidualnym tłem
             val menuItems = listOf(
                 "Strona główna" to "main",
                 "Fiszki" to "screen_flashcards?bookId=dummy&chapter=dummy",

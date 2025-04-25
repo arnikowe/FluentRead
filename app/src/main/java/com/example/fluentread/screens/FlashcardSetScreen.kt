@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.navigation.NavHostController
 import com.example.fluentread.R
-import com.example.fluentread.ui.theme.FluentBackgroundDark
+import com.example.fluentread.ui.theme.*
 import com.example.fluentread.viewmodel.UserViewModel
 import com.google.firebase.firestore.*
 import kotlinx.coroutines.tasks.await
@@ -26,7 +26,8 @@ import kotlinx.coroutines.tasks.await
 fun FlashcardSetScreen(
     bookId: String,
     userViewModel: UserViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    chapter: String? = null
 ) {
     val db = FirebaseFirestore.getInstance()
     val userId = userViewModel.userId ?: return
@@ -37,7 +38,7 @@ fun FlashcardSetScreen(
     var selectedSortType by remember { mutableStateOf(sortType) }
 
 
-    LaunchedEffect(bookId) {
+    LaunchedEffect(bookId, chapter) {
         if (bookId == "favorites") {
             val favoriteSnap = db.collection("users").document(userId)
                 .collection("flashcards").document("favorite").get().await()
@@ -52,17 +53,25 @@ fun FlashcardSetScreen(
 
             flashcards = favoriteDocs
         } else {
-            val flashcardSnap = db.collection("users").document(userId)
+            val query = db.collection("users").document(userId)
                 .collection("flashcards")
-                .whereEqualTo("bookId", bookId).get().await()
+                .whereEqualTo("bookId", bookId)
+
+            val finalQuery = if (chapter != null) {
+                query.whereEqualTo("chapter", chapter)
+            } else {
+                query
+            }
+
+            val flashcardSnap = finalQuery.get().await()
             flashcards = flashcardSnap.documents
         }
-
 
         val favoriteSnap = db.collection("users").document(userId)
             .collection("flashcards").document("favorite").get().await()
         favorites = (favoriteSnap.get("ids") as? List<String> ?: emptyList()).toSet()
     }
+
 
     val sortedFlashcards = when (sortType) {
         "alphabetical" -> flashcards.sortedBy { it.getString("word")?.lowercase() }
@@ -78,13 +87,24 @@ fun FlashcardSetScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(color = FluentBackgroundDark.copy(alpha = 0.7f), shape = RoundedCornerShape(12.dp))
+                .background(
+                    color = FluentBackgroundDark.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(12.dp)
+                )
 
         ) {
             Box(
                 modifier = Modifier
                     .size(140.dp)
-                    .clickable { navController.navigate("repeat_mode/$bookId") }
+                    .clickable {
+                        val baseRoute = "repeat_mode/$bookId"
+                        val route = if (chapter != null) {
+                            "$baseRoute?chapter=$chapter"
+                        } else {
+                            baseRoute
+                        }
+                        navController.navigate(route)
+                    }
                     .align(Alignment.Center)
             ) {
                 Icon(
@@ -93,7 +113,18 @@ fun FlashcardSetScreen(
                     modifier = Modifier.fillMaxSize(),
                     tint = Color.Unspecified
                 )
+
+                Text(
+                    text = "Powtórz",
+                    color = FluentSurfaceDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .offset(y = (-40).dp, x = 19.dp)
+                )
             }
+
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -114,7 +145,7 @@ fun FlashcardSetScreen(
             }
         }
 
-        Divider(color = Color(0xFFD4BC95), thickness = 1.dp)
+        HorizontalDivider(thickness = 1.dp, color = Color(0xFFD4BC95))
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -138,7 +169,11 @@ fun FlashcardSetScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = word, fontWeight = FontWeight.Bold, color = Color(0xFF4B2E2E))
+                            Text(
+                                text = word,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4B2E2E)
+                            )
                             Text(text = translation, color = Color(0xFF4B2E2E))
                         }
                         IconButton(onClick = {
@@ -154,7 +189,7 @@ fun FlashcardSetScreen(
                             Icon(
                                 imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
                                 contentDescription = "Favorite",
-                                tint = Color(0xFF4B2E2E)
+                                tint = FluentSecondaryDark
                             )
                         }
                     }

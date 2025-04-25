@@ -1,12 +1,15 @@
 package com.example.fluentread.viewmodel
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
@@ -60,6 +63,37 @@ open class UserViewModel : ViewModel() {
 
     var readScrollOffset by mutableStateOf(0)
         private set
+
+    val favoriteIds = mutableStateOf(setOf<String>())
+
+    var flashcardIndex by mutableStateOf(0)
+        private set
+
+    var showTranslation by mutableStateOf(false)
+        private set
+
+    var showFlashcardSettings by mutableStateOf(false)
+        private set
+
+    var flashcardLanguageMode by mutableStateOf("EN")
+        private set
+
+    var sessionFinished by mutableStateOf(false)
+        private set
+
+    var knowCount by mutableStateOf(0)
+        private set
+
+    var dontKnowCount by mutableStateOf(0)
+        private set
+
+    val answerHistory = mutableListOf<Boolean>()
+
+    var shuffleFlashcards by mutableStateOf(true)
+        private set
+    var shuffleEnabled by mutableStateOf(true)
+    var currentFlashcards by mutableStateOf<List<DocumentSnapshot>>(emptyList())
+
 
     fun updateReadingPosition(index: Int, offset: Int) {
         readScrollIndex = index
@@ -287,4 +321,71 @@ open class UserViewModel : ViewModel() {
             }
         }
     }
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    fun goToPreviousFlashcard() {
+        if (flashcardIndex > 0) {
+            flashcardIndex--
+            showTranslation = false
+
+            if (answerHistory.isNotEmpty()) {
+                val last = answerHistory.removeLast()
+                if (last) {
+                    knowCount--
+                } else {
+                    dontKnowCount--
+                }
+            }
+        }
+    }
+
+
+    fun goToNextFlashcard(maxIndex: Int) {
+        if (flashcardIndex <= maxIndex) {
+            flashcardIndex++
+            showTranslation = false
+            Log.d("FlashcardVM", "goToNextFlashcard -> new index: $flashcardIndex")
+
+            if (flashcardIndex > maxIndex) {
+                Log.d("FlashcardVM", "Session finished")
+                markSessionAsFinished()
+            }
+        }
+    }
+
+    fun toggleFlashcardSettingsDialog() {
+        showFlashcardSettings = !showFlashcardSettings
+    }
+
+    fun setFlashcardLanguage(mode: String) {
+        flashcardLanguageMode = mode
+    }
+
+    fun resetFlashcards(original: List<DocumentSnapshot>) {
+        flashcardIndex = 0
+        showTranslation = false
+        knowCount = 0
+        dontKnowCount = 0
+        showFlashcardSettings = false
+        sessionFinished = false
+        currentFlashcards = if (shuffleEnabled) original.shuffled() else original
+    }
+
+    fun toggleTranslation() {
+        showTranslation = !showTranslation
+    }
+
+    fun markSessionAsFinished() {
+        sessionFinished = true
+    }
+    fun incrementKnow() {
+        knowCount++
+        answerHistory.add(true)
+    }
+
+    fun incrementDontKnow() {
+        dontKnowCount++
+        answerHistory.add(false)
+    }
+
 }
