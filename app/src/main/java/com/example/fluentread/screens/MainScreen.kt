@@ -50,7 +50,8 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel)
             text = "Obecnie czytana książka",
             style = FluentTypography.titleMedium,
             fontWeight = FontWeight.Medium,
-            color = FluentSecondaryDark
+            color = FluentSecondaryDark,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -114,10 +115,14 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel)
                     color = FluentSecondaryDark
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val readChaptersCount = userViewModel.readChapters[currentBookId]?.size ?: 0
+                val totalChaptersCount = userViewModel.totalChapters[currentBookId] ?: 1
+                val progress = readChaptersCount.toFloat() / totalChaptersCount.toFloat()
 
                 LinearProgressIndicator(
-                    progress = 0.4f,
+                    progress = progress.coerceIn(0f, 1f),
                     modifier = Modifier.fillMaxWidth(),
                     color = FluentSurfaceDark
                 )
@@ -130,7 +135,8 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel)
             text = "Moja biblioteka",
             style = FluentTypography.titleMedium,
             fontWeight = FontWeight.Medium,
-            color = FluentSecondaryDark
+            color = FluentSecondaryDark,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         Spacer(modifier = Modifier.height(8.dp))

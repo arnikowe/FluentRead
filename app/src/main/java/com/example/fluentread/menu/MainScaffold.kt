@@ -39,7 +39,7 @@ fun MainScaffold(navController: NavHostController) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route ?: ""
     val isReadScreen = currentRoute.startsWith("screen_read")
-    val isFlashcardScreen = currentRoute.startsWith("repeat_mode")
+    val isFlashcardScreen = currentRoute == "repeat_mode"
     val userViewModel: UserViewModel = viewModel()
 
 

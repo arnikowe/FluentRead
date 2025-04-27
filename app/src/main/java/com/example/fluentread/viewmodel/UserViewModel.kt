@@ -97,6 +97,12 @@ open class UserViewModel : ViewModel() {
     var showTextSettingsDialog by mutableStateOf(false)
         private set
 
+    var readChapters by mutableStateOf<Map<String, Set<Int>>>(emptyMap())
+        private set
+
+    var totalChapters by mutableStateOf<Map<String, Int>>(emptyMap())
+        private set
+
     fun toggleTextSettingsDialog() {
         showTextSettingsDialog = !showTextSettingsDialog
     }
@@ -128,7 +134,13 @@ open class UserViewModel : ViewModel() {
                 bookAuthor = bookSnapshot.getString("author") ?: "Autor nieznany"
 
                 val chaptersSnapshot = bookRef.collection("chapters").get().await()
-                chapters = chaptersSnapshot.documents.mapNotNull { it.getDouble("number") }
+                val chapterNumbers = chaptersSnapshot.documents.mapNotNull { it.getDouble("number") }
+
+                chapters = chapterNumbers
+                totalChapters = totalChapters.toMutableMap().apply {
+                    put(bookId, chapterNumbers.size)
+                }
+
             } catch (e: Exception) {
                 Log.e("UserViewModel", "Błąd ładowania danych: ${e.localizedMessage}")
             } finally {
@@ -354,7 +366,7 @@ open class UserViewModel : ViewModel() {
 
             if (flashcardIndex > maxIndex) {
                 Log.d("FlashcardVM", "Session finished")
-                markSessionAsFinished()
+               sessionFinished = true
             }
         }
     }
@@ -381,9 +393,6 @@ open class UserViewModel : ViewModel() {
         showTranslation = !showTranslation
     }
 
-    fun markSessionAsFinished() {
-        sessionFinished = true
-    }
     fun incrementKnow() {
         knowCount++
         answerHistory.add(true)
@@ -393,5 +402,85 @@ open class UserViewModel : ViewModel() {
         dontKnowCount++
         answerHistory.add(false)
     }
+    fun updateLastRead(userId: String, bookId: String) {
+        val db = FirebaseFirestore.getInstance()
+        val userRef = db.collection("users").document(userId)
+        val bookRef = db.collection("books").document(bookId)
 
+        userRef.update("lastRead", bookRef)
+            .addOnSuccessListener {
+                Log.d("UserViewModel", "Zaktualizowano lastRead na $bookId")
+            }
+            .addOnFailureListener { e ->
+                Log.e("UserViewModel", "Błąd podczas aktualizacji lastRead: ${e.localizedMessage}")
+            }
+    }
+    fun saveChapterAsRead(userId: String, bookId: String, chapter: Int) {
+        val db = FirebaseFirestore.getInstance()
+        val progressRef = db.collection("users").document(userId)
+            .collection("readProgress").document(bookId)
+
+        progressRef.get().addOnSuccessListener { snapshot ->
+            val chaptersRead = snapshot.get("chaptersRead") as? List<Long> ?: emptyList()
+            if (chapter.toLong() !in chaptersRead) {
+                progressRef.set(
+                    mapOf(
+                        "bookId" to bookId,
+                        "chaptersRead" to chaptersRead + chapter
+                    )
+                )
+            }
+        }
+    }
+
+    fun getChaptersRead(userId: String, bookId: String, onResult: (List<Int>) -> Unit) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress").document(bookId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val chaptersRead = snapshot.get("chaptersRead") as? List<Long> ?: emptyList()
+                val chaptersSet = chaptersRead.map { it.toInt() }.toSet()
+
+                readChapters = readChapters.toMutableMap().apply {
+                    put(bookId, chaptersSet)
+                }
+
+                onResult(chaptersSet.toList())
+            }
+            .addOnFailureListener {
+                onResult(emptyList())
+            }
+    }
+
+
+    fun updateLastRead(userId: String, bookId: String, chapter: Int? = null) {
+        val db = FirebaseFirestore.getInstance()
+        val lastReadRef = db.collection("users").document(userId).collection("lastRead").document("info")
+
+        val data = mutableMapOf<String, Any>(
+            "bookRef" to FirebaseFirestore.getInstance().collection("books").document(bookId)
+        )
+
+        if (chapter != null) {
+            data["chapter"] = chapter
+        }
+
+        lastReadRef.set(data)
+    }
+
+    fun loadLastReadProgress(userId: String, onResult: (String?, Int?) -> Unit) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId).collection("lastRead")
+            .document("info")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val bookRef = snapshot.getDocumentReference("bookRef")
+                val chapter = snapshot.getLong("chapter")?.toInt()
+                onResult(bookRef?.id, chapter)
+            }
+            .addOnFailureListener {
+                onResult(null, null)
+            }
+    }
 }

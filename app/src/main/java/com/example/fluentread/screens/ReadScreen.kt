@@ -102,11 +102,15 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
         "Monospace"
     )
 
-
     // Ładowanie treści
     LaunchedEffect(bookId, chapter) {
         if (bookId != null && chapter != null) {
             userViewModel.loadChapter(bookId, chapter)
+        }
+    }
+    LaunchedEffect(bookId) {
+        if (bookId != null && userId != null) {
+            userViewModel.updateLastRead(userId, bookId)
         }
     }
 
@@ -236,7 +240,11 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                     Button(
                         onClick = {
                             val nextChapter = (chapter?.toIntOrNull() ?: 0) + 1
-                            val route = "screen_loading_route?bookId=$bookId&chapter=$nextChapter"
+                            if (bookId != null && chapter != null) {
+                                userViewModel.saveChapterAsRead(userId, bookId, chapter.toInt())
+                                userViewModel.updateLastRead(userId, bookId, nextChapter)
+                            }
+                            val route = "screen_read?bookId=$bookId&chapter=$nextChapter"
                             navController.navigate(route)
                         },
                         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),

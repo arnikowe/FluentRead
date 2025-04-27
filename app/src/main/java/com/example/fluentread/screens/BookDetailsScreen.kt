@@ -25,6 +25,13 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
     var expandedChapter by remember { mutableStateOf<String?>(null) }
     var availableFlashcards by remember { mutableStateOf<Map<Int, Boolean>>(emptyMap()) }
 
+    val currentTitle = userViewModel.bookTitle
+    val currentAuthor = userViewModel.bookAuthor
+    val chapters = userViewModel.chapters
+    var lastReadChapter by remember { mutableStateOf<Int?>(null) }
+    var chaptersRead by remember { mutableStateOf<List<Int>>(emptyList()) }
+
+
     LaunchedEffect(bookId) {
         userViewModel.loadBookDetails(bookId)
     }
@@ -55,12 +62,6 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
         availableFlashcards = newAvailableFlashcards.toMap()
     }
 
-
-
-    val currentTitle = userViewModel.bookTitle
-    val currentAuthor = userViewModel.bookAuthor
-    val chapters = userViewModel.chapters
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,6 +90,54 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
         )
 
         Spacer(modifier = Modifier.height(8.dp))
+        LaunchedEffect(bookId) {
+            userViewModel.userId?.let { userId ->
+                userViewModel.getChaptersRead(userId, bookId) { readChapters ->
+                    chaptersRead = readChapters
+                }
+            }
+        }
+
+        val progress = if (chapters.isNotEmpty()) {
+            chaptersRead.size.toFloat() / chapters.size.toFloat()
+        } else 0f
+
+        LinearProgressIndicator(
+            progress = progress,
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .height(6.dp)
+                .align(Alignment.CenterHorizontally),
+            color = FluentSecondaryDark
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LaunchedEffect(userViewModel.userId) {
+            userViewModel.userId?.let { userId ->
+                userViewModel.loadLastReadProgress(userId) { bookRefId, chapter ->
+                    if (bookRefId == bookId) {
+                        lastReadChapter = chapter
+                    }
+                }
+            }
+        }
+
+        if (lastReadChapter != null) {
+            Button(
+                onClick = {
+                    navController.navigate("screen_read?bookId=$bookId&chapter=$lastReadChapter")
+                },
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .align(Alignment.CenterHorizontally),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = FluentSecondaryDark
+                )
+            ) {
+                Text("Wznów rozdział ${lastReadChapter}", color = FluentBackgroundDark)
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
 
         Column(
             modifier = Modifier
@@ -112,12 +161,28 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                             }
                             .padding(horizontal = 20.dp, vertical = 12.dp)
                     ) {
-                        Text(
-                            text = chapterName,
-                            color = Color.White,
-                            style = FluentTypography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = chapterName,
+                                color = Color.White,
+                                style = FluentTypography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            if (lastReadChapter != null && chapterInt < lastReadChapter!!) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_check),
+                                    contentDescription = "Przeczytane",
+                                    tint =  FluentSurfaceDark,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
                     }
 
                     AnimatedVisibility(
