@@ -2,6 +2,8 @@ package com.example.fluentread.screens
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,12 +34,17 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.fluentread.R
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 import com.example.fluentread.ui.theme.FluentSurfaceDark
 import com.example.fluentread.ui.theme.FluentTypography
 import com.example.fluentread.viewmodel.UserViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -52,14 +59,14 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
+
     var selectedWord by remember { mutableStateOf<String?>(null) }
     var manuallyBookmarked by remember { mutableStateOf(false) }
     var scrollRestored by remember { mutableStateOf(false) }
     var lastSavedOffset by remember { mutableStateOf(-1) }
 
-    val title = userViewModel.currentTitle
     val content = userViewModel.chapterContent
-    val isBookmarked by userViewModel::isBookmarked
+    var isLoading by remember { mutableStateOf(true) }
 
     var translation by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -69,7 +76,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
         chunkTextBySentences(content, 1000)
     }
 
-    var showSettingsDialog by remember { mutableStateOf(false) }
     var textPadding by remember { mutableStateOf(8.dp) }
     var fontSize by remember { mutableStateOf(16.sp) }
     var textColor by remember { mutableStateOf(Color.White) }
@@ -95,9 +101,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
         "Bezszeryfowa",
         "Monospace"
     )
-
-
-
 
 
     // Ładowanie treści
@@ -127,99 +130,126 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
     }
 
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize().background(FluentSurfaceDark),
-        containerColor = FluentSurfaceDark
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier.padding(paddingValues).padding(16.dp),
-            state = scrollState
+    LaunchedEffect(Unit) {
+        delay(1500)
+        isLoading = false
+    }
+
+    if (isLoading) {
+        val composition by rememberLottieComposition(LottieCompositionSpec.Asset("book_animation.json"))
+        val progress by animateLottieCompositionAsState(composition)
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(FluentSurfaceDark),
+            contentAlignment = Alignment.Center
         ) {
-            item {
-                Text(
-                    text = "Chapter ${chapter ?: "?"}",
-                    color = Color.White,
-                    style = FluentTypography.titleMedium,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                LottieAnimation(
+                    composition = composition,
+                    progress = { progress },
+                    modifier = Modifier.size(200.dp)
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            items(textChunks) { chunk ->
-                val annotated = remember(chunk, selectedWord, fontSize, textColor) {
-                    val words = Regex("\\S+").findAll(chunk).map { it.range.first to it.value }.toList()
-                    buildAnnotatedString {
-                        var lastIndex = 0
-                        for ((index, word) in words) {
-                            if (index > lastIndex) append(chunk.substring(lastIndex, index))
-
-                            val clean = word.replace(Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$"""), "")
-
-                            pushStringAnnotation(tag = "WORD", annotation = clean)
-                            withStyle(
-                                SpanStyle(
-                                    color = if (clean == selectedWord) Color.Black else textColor,
-                                    background = if (clean == selectedWord) FluentSecondaryDark else Color.Transparent,
-                                    fontSize = fontSize
-                                )
-
-                            ) {
-                                append(word)
-                            }
-                            pop()
-                            lastIndex = index + word.length
-                        }
-                        if (lastIndex < chunk.length) append(chunk.substring(lastIndex))
-                    }
-                }
-
-                ClickableText(
-                    text = annotated,
-                    style = FluentTypography.bodyLarge.copy(
-                        lineHeight = 24.sp,
-                        textAlign = TextAlign.Justify,
-                        color = textColor,
-                        fontSize = fontSize,
-                        fontFamily = selectedFont
-                    ),
-                    modifier = Modifier
-                        .background(backgroundColor)
-                        .padding(textPadding),
-                    onClick = { offset ->
-                        annotated.getStringAnnotations("WORD", offset, offset)
-                            .firstOrNull()?.let {
-                                selectedWord = it.item
-                                Log.d("SelectedWord", "Clicked: ${it.item}")
-                            }
-                    }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            item {
                 Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        val nextChapter = (chapter?.toIntOrNull() ?: 0) + 1
-                        val route = "screen_loading_route?bookId=$bookId&chapter=$nextChapter"
-                        navController.navigate(route)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = FluentBackgroundDark,
-                        contentColor = FluentSecondaryDark
+                CircularProgressIndicator(color = FluentSecondaryDark)
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Rozpoczynamy czytanie...",
+                    color = Color.White,
+                    style = FluentTypography.bodyMedium
+                )
+            }
+        }
+    } else {
+        Scaffold(
+            modifier = Modifier.fillMaxSize().background(FluentSurfaceDark),
+            containerColor = FluentSurfaceDark
+        ) { paddingValues ->
+            LazyColumn(
+                modifier = Modifier.padding(paddingValues).padding(16.dp),
+                state = scrollState
+            ) {
+                item {
+                    Text(
+                        text = "Chapter ${chapter ?: "?"}",
+                        color = Color.White,
+                        style = FluentTypography.titleMedium,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
-                ) {
-                    Text("Następny rozdział", style = FluentTypography.titleMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                items(textChunks) { chunk ->
+                    val annotated = remember(chunk, selectedWord, fontSize, textColor) {
+                        val words = Regex("\\S+").findAll(chunk).map { it.range.first to it.value }.toList()
+                        buildAnnotatedString {
+                            var lastIndex = 0
+                            for ((index, word) in words) {
+                                if (index > lastIndex) append(chunk.substring(lastIndex, index))
+
+                                val clean = word.replace(Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$"""), "")
+
+                                pushStringAnnotation(tag = "WORD", annotation = clean)
+                                withStyle(
+                                    SpanStyle(
+                                        color = if (clean == selectedWord) Color.Black else textColor,
+                                        background = if (clean == selectedWord) FluentSecondaryDark else Color.Transparent,
+                                        fontSize = fontSize
+                                    )
+                                ) {
+                                    append(word)
+                                }
+                                pop()
+                                lastIndex = index + word.length
+                            }
+                            if (lastIndex < chunk.length) append(chunk.substring(lastIndex))
+                        }
+                    }
+
+                    ClickableText(
+                        text = annotated,
+                        style = FluentTypography.bodyLarge.copy(
+                            lineHeight = 24.sp,
+                            textAlign = TextAlign.Justify,
+                            color = textColor,
+                            fontSize = fontSize,
+                            fontFamily = selectedFont
+                        ),
+                        modifier = Modifier
+                            .background(backgroundColor)
+                            .padding(textPadding),
+                        onClick = { offset ->
+                            annotated.getStringAnnotations("WORD", offset, offset)
+                                .firstOrNull()?.let {
+                                    selectedWord = it.item
+                                    Log.d("SelectedWord", "Clicked: ${it.item}")
+                                }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            val nextChapter = (chapter?.toIntOrNull() ?: 0) + 1
+                            val route = "screen_loading_route?bookId=$bookId&chapter=$nextChapter"
+                            navController.navigate(route)
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = FluentBackgroundDark,
+                            contentColor = FluentSecondaryDark
+                        )
+                    ) {
+                        Text("Następny rozdział", style = FluentTypography.titleMedium)
+                    }
                 }
             }
-
-
         }
-
     }
     if (userViewModel.showTextSettingsDialog) {
         AlertDialog(

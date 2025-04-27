@@ -141,7 +141,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                 }
 
                                 val route = when (action) {
-                                    "Read" -> "screen_loading_route?bookId=$bookId&chapter=$chapterInt"
+                                    "Read" -> "screen_read?bookId=$bookId&chapter=$chapterInt"
                                     "Chat" -> "screen_chat?bookId=$bookId&chapter=$chapterInt"
                                     "Flashcards" -> "screen_flashcard_set?bookId=$bookId&chapter=$chapterInt"
                                     else -> ""

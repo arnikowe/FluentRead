@@ -43,24 +43,8 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel)
             .fillMaxSize()
             .background(FluentSurfaceDark)
     ) {
-        // Pasek górny
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .background(FluentBackgroundDark)
-        ) {
-            IconButton(onClick = { /* TODO: menu */ }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_menu),
-                    contentDescription = "Menu"
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(55.dp))
 
         Text(
             text = "Obecnie czytana książka",

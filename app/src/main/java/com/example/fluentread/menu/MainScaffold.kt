@@ -3,6 +3,10 @@ package com.example.fluentread.menu
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -11,10 +15,12 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -66,21 +72,29 @@ fun MainScaffold(navController: NavHostController) {
         Scaffold(
             topBar = {
                 TopAppBar(
+                    modifier = Modifier.height(45.dp),
                     title = {
-                        Text(
-                            when {
-                                isReadScreen -> userViewModel.currentTitle
-                                isFlashcardScreen -> "Powtórka fiszek"
-                                else -> "FluentReads"
-                            },
-                            color = Color.White
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(start = 2.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = when {
+                                    isReadScreen -> userViewModel.currentTitle
+                                    else -> ""
+                                },
+                                color = Color.White,
+                                fontSize = 19.sp
+                            )
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = {
                             scope.launch { drawerState.open() }
                         }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White,modifier = Modifier.size(28.dp))
                         }
                     },
                     actions = {
@@ -105,7 +119,8 @@ fun MainScaffold(navController: NavHostController) {
                                             else R.drawable.ic_bookmark
                                         ),
                                         contentDescription = "Bookmark",
-                                        tint = Color.White
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp)
                                     )
                                 }
                                 IconButton(onClick = {
@@ -115,7 +130,7 @@ fun MainScaffold(navController: NavHostController) {
                                         imageVector = Icons.Default.Settings,
                                         contentDescription = "Ustawienia tekstu",
                                         tint = Color.White,
-                                        modifier = Modifier.size(30.dp)
+                                        modifier = Modifier.size(28.dp)
                                     )
                                 }
 
@@ -124,7 +139,7 @@ fun MainScaffold(navController: NavHostController) {
                                 IconButton(onClick = {
                                     userViewModel.toggleFlashcardSettingsDialog()
                                 }) {
-                                    Icon(Icons.Default.Settings, contentDescription = "Ustawienia", tint = Color.White)
+                                    Icon(Icons.Default.Settings, contentDescription = "Ustawienia", tint = Color.White,modifier = Modifier.size(28.dp))
                                 }
                                 IconButton(onClick = {
                                     userViewModel.goToPreviousFlashcard()
