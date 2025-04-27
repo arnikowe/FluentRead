@@ -2,11 +2,15 @@ package com.example.fluentread.screens
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.*
@@ -20,11 +24,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.fluentread.R
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
@@ -36,7 +43,7 @@ import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) {
+fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, navController: NavController) {
     val userId = userViewModel.userId ?: return
     userViewModel.currentBookId = bookId
     userViewModel.currentChapter = chapter
@@ -61,6 +68,36 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
     val textChunks = remember(content) {
         chunkTextBySentences(content, 1000)
     }
+
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var textPadding by remember { mutableStateOf(8.dp) }
+    var fontSize by remember { mutableStateOf(16.sp) }
+    var textColor by remember { mutableStateOf(Color.White) }
+    var backgroundColor by remember { mutableStateOf(FluentSurfaceDark) }
+    var selectedFont by remember { mutableStateOf(FontFamily.Default) }
+    val availableTextColors = listOf(
+        Color.White, Color.Black, Color.Gray, Color.Yellow, Color.Cyan, Color.Red, Color.Green, Color.Magenta
+    )
+    val availableBackgroundColors = listOf(
+        FluentSurfaceDark, Color.White, Color(0xFFFAF3E0), Color(0xFF333333), Color(0xFFE0F7FA), Color(0xFFF8BBD0), Color(0xFFB2DFDB)
+    )
+    var selectedTextColor by remember { mutableStateOf(textColor) }
+    var selectedBackgroundColor by remember { mutableStateOf(backgroundColor) }
+    val availableFonts = listOf(
+        FontFamily.Default,
+        FontFamily.Serif,
+        FontFamily.SansSerif,
+        FontFamily.Monospace
+    )
+    val fontNames = listOf(
+        "Domyślna",
+        "Szeryfowa",
+        "Bezszeryfowa",
+        "Monospace"
+    )
+
+
+
 
 
     // Ładowanie treści
@@ -92,17 +129,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
 
     Scaffold(
         modifier = Modifier.fillMaxSize().background(FluentSurfaceDark),
-        topBar = {
-            TopAppBar(
-                title = { Text(title, color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = { /* menu */ }) {
-                        Icon(painterResource(R.drawable.ic_menu), contentDescription = null, tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = FluentBackgroundDark)
-            )
-        },
         containerColor = FluentSurfaceDark
     ) { paddingValues ->
         LazyColumn(
@@ -121,7 +147,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
             }
 
             items(textChunks) { chunk ->
-                val annotated = remember(chunk, selectedWord) {
+                val annotated = remember(chunk, selectedWord, fontSize, textColor) {
                     val words = Regex("\\S+").findAll(chunk).map { it.range.first to it.value }.toList()
                     buildAnnotatedString {
                         var lastIndex = 0
@@ -133,10 +159,11 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                             pushStringAnnotation(tag = "WORD", annotation = clean)
                             withStyle(
                                 SpanStyle(
-                                    color = if (clean == selectedWord) Color.Black else Color.White,
+                                    color = if (clean == selectedWord) Color.Black else textColor,
                                     background = if (clean == selectedWord) FluentSecondaryDark else Color.Transparent,
-                                    fontSize = 16.sp
+                                    fontSize = fontSize
                                 )
+
                             ) {
                                 append(word)
                             }
@@ -149,7 +176,16 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
 
                 ClickableText(
                     text = annotated,
-                    style = FluentTypography.bodyLarge.copy(lineHeight = 24.sp, textAlign = TextAlign.Justify),
+                    style = FluentTypography.bodyLarge.copy(
+                        lineHeight = 24.sp,
+                        textAlign = TextAlign.Justify,
+                        color = textColor,
+                        fontSize = fontSize,
+                        fontFamily = selectedFont
+                    ),
+                    modifier = Modifier
+                        .background(backgroundColor)
+                        .padding(textPadding),
                     onClick = { offset ->
                         annotated.getStringAnnotations("WORD", offset, offset)
                             .firstOrNull()?.let {
@@ -160,9 +196,173 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        val nextChapter = (chapter?.toIntOrNull() ?: 0) + 1
+                        val route = "screen_loading_route?bookId=$bookId&chapter=$nextChapter"
+                        navController.navigate(route)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FluentBackgroundDark,
+                        contentColor = FluentSecondaryDark
+                    )
+                ) {
+                    Text("Następny rozdział", style = FluentTypography.titleMedium)
+                }
+            }
+
 
         }
+
     }
+    if (userViewModel.showTextSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { userViewModel.toggleTextSettingsDialog() },
+            title = { Text("Ustawienia wyglądu tekstu", color = FluentSecondaryDark )},
+            text = {
+                Column {
+                    var tempFontSize by remember { mutableStateOf(fontSize) }
+                    var tempTextPadding by remember { mutableStateOf(textPadding) }
+                    var tempSelectedTextColor by remember { mutableStateOf(selectedTextColor) }
+                    var tempSelectedBackgroundColor by remember { mutableStateOf(selectedBackgroundColor) }
+                    var tempSelectedFont by remember { mutableStateOf(selectedFont) }
+
+
+                    Text("Czcionka")
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        itemsIndexed(availableFonts) { index, font ->
+                            Button(
+                                onClick = { tempSelectedFont = font },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (font == tempSelectedFont) FluentSecondaryDark else FluentSurfaceDark
+                                )
+                            ) {
+                                Text(
+                                    text = fontNames[index],
+                                    fontFamily = font,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Rozmiar czcionki: ${tempFontSize.value.toInt()}")
+                    Slider(
+                        value = tempFontSize.value,
+                        onValueChange = { tempFontSize = it.sp },
+                        valueRange = 12f..30f
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Margines tekstu: ${tempTextPadding.value.toInt()}")
+                    Slider(
+                        value = tempTextPadding.value,
+                        onValueChange = { tempTextPadding = it.dp },
+                        valueRange = 0f..32f
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Kolor tekstu")
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        items(availableTextColors) { color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(color, shape = MaterialTheme.shapes.small)
+                                    .border(
+                                        width = if (color == tempSelectedTextColor) 3.dp else 1.dp,
+                                        color = if (color == tempSelectedTextColor) Color.White else Color.Gray,
+                                        shape = MaterialTheme.shapes.small
+                                    )
+                                    .clickable {
+                                        if (colorsTooSimilar(color, tempSelectedBackgroundColor)) {
+                                            Toast.makeText(context, "Kolor tekstu jest za podobny do tła!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            tempSelectedTextColor = color
+                                        }
+                                    }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Kolor tła")
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        items(availableBackgroundColors) { color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(color, shape = MaterialTheme.shapes.small)
+                                    .border(
+                                        width = if (color == tempSelectedBackgroundColor) 3.dp else 1.dp,
+                                        color = if (color == tempSelectedBackgroundColor) Color.White else Color.Gray,
+                                        shape = MaterialTheme.shapes.small
+                                    )
+                                    .clickable {
+                                        if (colorsTooSimilar(tempSelectedTextColor, color)) {
+                                            Toast.makeText(context, "Kolor tła jest za podobny do tekstu!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            tempSelectedBackgroundColor = color
+                                        }
+                                    }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = {
+                            fontSize = tempFontSize
+                            textPadding = tempTextPadding
+                            textColor = tempSelectedTextColor
+                            backgroundColor = tempSelectedBackgroundColor
+                            selectedTextColor = tempSelectedTextColor
+                            selectedBackgroundColor = tempSelectedBackgroundColor
+                            selectedFont = tempSelectedFont
+                            userViewModel.toggleTextSettingsDialog()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = FluentBackgroundDark,
+                            contentColor = FluentSecondaryDark
+                        )
+                    ) {
+                        Text("Zastosuj", style = FluentTypography.titleMedium)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = { userViewModel.toggleTextSettingsDialog() },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(2.dp, FluentSecondaryDark),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = FluentSecondaryDark
+                        )
+                    ) {
+                        Text("Zamknij", style = FluentTypography.titleMedium)
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
 
     if (selectedWord != null) {
         val cleanedWord = selectedWord!!.replace(Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$"""), "")
@@ -173,7 +373,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 val sentence = extractSentence(content, cleanedWord)
                 Log.d("ExtractedSentence", "Word: $cleanedWord → Sentence: $sentence")
                 userViewModel.translateWord(cleanedWord, sentence) { result ->
-                    translation = result
+                    translation = cleanTranslation(result.toLowerCase())
                 }
             }
         }
@@ -193,13 +393,14 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = if (translation.isNotBlank()) translation else "Ładowanie...",
+                            text = if (translation.isNotBlank()) cleanTranslation(translation) else "Ładowanie...",
                             style = FluentTypography.titleMedium,
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(end = 8.dp),
                             textAlign = TextAlign.Left
                         )
+
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -286,4 +487,17 @@ fun chunkTextBySentences(content: String, maxChunkLength: Int): List<String> {
     }
 
     return chunks
+}
+fun cleanTranslation(text: String): String {
+    return text.trim().removeSurrounding("\"")
+}
+fun colorsTooSimilar(color1: Color, color2: Color): Boolean {
+    val threshold = 0.3f  // tolerancja
+    val diff = listOf(
+        kotlin.math.abs(color1.red - color2.red),
+        kotlin.math.abs(color1.green - color2.green),
+        kotlin.math.abs(color1.blue - color2.blue)
+    ).average()
+
+    return diff < threshold
 }

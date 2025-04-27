@@ -4,6 +4,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -39,15 +41,25 @@ fun MainScaffold(navController: NavHostController) {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                DrawerContent(onItemClick = { route ->
-                    scope.launch {
-                        drawerState.close()
-                        navController.navigate(route) {
-                            launchSingleTop = true
-                            restoreState = true
+                DrawerContent(
+                    onItemClick = { route ->
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate(route) {
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                    onLogout = {
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
                         }
                     }
-                })
+                )
             }
         }
     ) {
@@ -96,6 +108,17 @@ fun MainScaffold(navController: NavHostController) {
                                         tint = Color.White
                                     )
                                 }
+                                IconButton(onClick = {
+                                    userViewModel.toggleTextSettingsDialog()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "Ustawienia tekstu",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(30.dp)
+                                    )
+                                }
+
                             }
                             isFlashcardScreen -> {
                                 IconButton(onClick = {

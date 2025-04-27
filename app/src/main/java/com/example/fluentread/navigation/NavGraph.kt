@@ -50,7 +50,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId")
             val chapter = backStackEntry.arguments?.getString("chapter")
-            ReadScreen(bookId = bookId, chapter = chapter, userViewModel = userViewModel)
+            ReadScreen(bookId = bookId, chapter = chapter, userViewModel = userViewModel, navController = navController)
         }
         composable(
             route = "screen_chat?bookId={bookId}&chapter={chapter}",

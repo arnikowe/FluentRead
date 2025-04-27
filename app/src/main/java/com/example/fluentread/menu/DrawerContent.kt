@@ -2,30 +2,14 @@ package com.example.fluentread.menu
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,13 +19,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.fluentread.R
 import com.example.fluentread.ui.theme.*
-import com.example.fluentread.ui.theme.FluentTypography
+import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 
 @Composable
-fun DrawerContent(onItemClick: (String) -> Unit) {
+fun DrawerContent(onItemClick: (String) -> Unit, onLogout: () -> Unit) {
+    val context = LocalContext.current
+
     Box(
         modifier = Modifier
-            .fillMaxSize()
+            .width(260.dp)
+            .fillMaxHeight()
             .background(FluentSurfaceDark)
     ) {
         Column(
@@ -56,7 +45,7 @@ fun DrawerContent(onItemClick: (String) -> Unit) {
                     .padding(top = 16.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.End
             ) {
-                IconButton(onClick = { /* Ustawienia */ }) {
+                IconButton(onClick = { /* TODO: Obsługa ustawień */ }) {
                     Icon(
                         imageVector = Icons.Outlined.Settings,
                         contentDescription = "Ustawienia",
@@ -64,15 +53,18 @@ fun DrawerContent(onItemClick: (String) -> Unit) {
                         tint = FluentBackgroundDark
                     )
                 }
-                IconButton(onClick = { /* Profil */ }) {
+                IconButton(onClick = {
+                    FirebaseAuth.getInstance().signOut()
+                    Toast.makeText(context, "Wylogowano pomyślnie", Toast.LENGTH_SHORT).show()
+                    onLogout()
+                }) {
                     Icon(
                         imageVector = Icons.Outlined.Logout,
-                        contentDescription = "Logout",
+                        contentDescription = "Wyloguj",
                         modifier = Modifier.size(32.dp),
                         tint = FluentBackgroundDark
                     )
                 }
-
             }
 
             Image(
@@ -119,7 +111,7 @@ fun DrawerContent(onItemClick: (String) -> Unit) {
                         selected = false,
                         onClick = { onItemClick(route) },
                         shape = RectangleShape,
-                        colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                        colors = NavigationDrawerItemDefaults.colors(
                             selectedContainerColor = FluentSecondaryDark,
                             unselectedContainerColor = FluentSecondaryDark,
                             selectedIconColor = Color.White,
@@ -128,10 +120,8 @@ fun DrawerContent(onItemClick: (String) -> Unit) {
                             unselectedTextColor = Color.White
                         )
                     )
-
                 }
             }
         }
     }
 }
-

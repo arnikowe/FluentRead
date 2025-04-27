@@ -44,9 +44,6 @@ fun RegisterScreen(navController: NavController) {
                 color = Color(0xFFEDE6B1)
             )
 
-            //Spacer(modifier = Modifier.height(16.dp))
-
-            // Formularz
             Column(
                 modifier = Modifier
                     .weight(1.6f)
@@ -58,7 +55,6 @@ fun RegisterScreen(navController: NavController) {
 
                 InputField(label = "Email", value = email, onValueChange = { email = it })
 
-                //Spacer(modifier = Modifier.height(8.dp))
 
                 PasswordField(
                     value = password,
@@ -68,9 +64,6 @@ fun RegisterScreen(navController: NavController) {
                 )
             }
 
-            //Spacer(modifier = Modifier.height(16.dp))
-
-            // Przycisk rejestracji
             Button(
                 onClick = {
                     if (username.isBlank() || email.isBlank() || password.isBlank()) {

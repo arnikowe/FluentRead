@@ -43,7 +43,6 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Środkowa część z wagą
             Column(
                 modifier = Modifier
                     .weight(3f)

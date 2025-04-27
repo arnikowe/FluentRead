@@ -94,6 +94,12 @@ open class UserViewModel : ViewModel() {
     var shuffleEnabled by mutableStateOf(true)
     var currentFlashcards by mutableStateOf<List<DocumentSnapshot>>(emptyList())
 
+    var showTextSettingsDialog by mutableStateOf(false)
+        private set
+
+    fun toggleTextSettingsDialog() {
+        showTextSettingsDialog = !showTextSettingsDialog
+    }
 
     fun updateReadingPosition(index: Int, offset: Int) {
         readScrollIndex = index

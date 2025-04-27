@@ -154,7 +154,7 @@ fun SummaryScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.Transparent
                 ),
-                border = BorderStroke(2.dp, Color(0xFFF6EFC6)),
+                border = BorderStroke(2.dp, FluentSecondaryDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
