@@ -166,97 +166,85 @@ fun CurrentReadingBooks(navController: NavController, userViewModel: UserViewMod
     var showDialog by remember { mutableStateOf(false) }
     var selectedBookId by remember { mutableStateOf<String?>(null) }
 
-    when {
-        isLoading -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+    Spacer(modifier = Modifier.height(24.dp))
+
+    Text(
+        text = "Moja biblioteka",
+        style = FluentTypography.titleMedium,
+        fontWeight = FontWeight.Medium,
+        color = FluentSecondaryDark,
+        modifier = Modifier.padding(horizontal = 4.dp)
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+    DividerLine()
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .background(FluentBackgroundDark, RoundedCornerShape(8.dp))
+            .padding(16.dp),
+        contentAlignment = Alignment.TopStart
+    ) {
+        when {
+            isLoading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-        }
-        errorMessage != null -> {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
+            errorMessage != null -> {
                 Text(
                     text = errorMessage,
                     color = MaterialTheme.colorScheme.error
                 )
             }
-        }
-        else -> {
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Moja biblioteka",
-                style = FluentTypography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = FluentSecondaryDark,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-            DividerLine()
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .background(FluentBackgroundDark, RoundedCornerShape(8.dp))
-                    .padding(16.dp),
-                contentAlignment = Alignment.TopStart
-            ) {
-                if (books.isEmpty()) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            books.isEmpty() -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Nie masz żadnych obecnie czytanych książek.",
+                        color = FluentSecondaryDark
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (sourceScreen == "main") {
                         Text(
-                            text = "Nie masz żadnych obecnie czytanych książek.",
-                            color = FluentSecondaryDark
+                            text = "Przejdź do biblioteki",
+                            color = FluentPrimaryDark,
+                            modifier = Modifier.clickable {
+                                navController.navigate("library")
+                            }
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        if (sourceScreen == "main") {
-                            Text(
-                                text = "Przejdź do biblioteki",
-                                color = FluentPrimaryDark,
-                                modifier = Modifier.clickable {
-                                    navController.navigate("library")
+                    } else {
+                        Text(
+                            text = "Weź coś do ręki z półki",
+                            color = FluentPrimaryDark
+                        )
+                    }
+                }
+            }
+            else -> {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    items(books) { book ->
+                        Box(modifier = Modifier.width(itemWidth)) {
+                            BookItem(
+                                imageUrl = book.cover,
+                                onClick = { navController.navigate("bookDetails/${book.id}") },
+                                onLongClick = {
+                                    selectedBookId = book.id
+                                    showDialog = true
                                 }
                             )
-                        } else {
-                            Text(
-                                text = "Weź coś do ręki z półki ",
-                                color = FluentPrimaryDark
-                            )
-                        }
-                    }
-                } else {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        items(books) { book ->
-                            Box(modifier = Modifier.width(itemWidth)) {
-                                BookItem(
-                                    imageUrl = book.cover,
-                                    onClick = { navController.navigate("bookDetails/${book.id}") },
-                                    onLongClick = {
-                                        selectedBookId = book.id
-                                        showDialog = true
-                                    }
-                                )
-                            }
                         }
                     }
                 }
             }
         }
-
     }
+
 
     if (showDialog && selectedBookId != null) {
         AlertDialog(

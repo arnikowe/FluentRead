@@ -246,9 +246,9 @@ open class UserViewModel : ViewModel() {
         viewModelScope.launch {
             Log.d("Bookmark", "Zapisuję zakładkę dla $bookId/$chapter user=$userId, index=$index, offset=$offset")
 
-            val ref = db.collection("books").document(bookId)
-                .collection("chapters").document(chapter)
-                .collection("bookmarks").document(userId)
+            val ref = db.collection("users").document(userId)
+                .collection("currentRead").document(bookId)
+                .collection("bookmarks").document(chapter)
 
             try {
                 if (isBookmarked) {
@@ -283,10 +283,9 @@ open class UserViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
-                val snap = db.collection("books")
-                    .document(bookId)
-                    .collection("chapters").document(chapter)
-                    .collection("bookmarks").document(userId)
+                val snap = db.collection("users").document(userId)
+                    .collection("currentRead").document(bookId)
+                    .collection("bookmarks").document(chapter)
                     .get()
                     .await()
 
@@ -754,6 +753,7 @@ open class UserViewModel : ViewModel() {
         val userDoc = db.collection("users").document(userId)
         val currentReadRef = userDoc.collection("currentRead").document(bookId)
         val readProgressRef = userDoc.collection("readProgress").document(bookId)
+        val bookmarksRef = currentReadRef.collection("bookmarks")
         val lastReadField = "lastRead"
 
         currentReadRef.delete()
@@ -766,6 +766,23 @@ open class UserViewModel : ViewModel() {
                     }
                     .addOnFailureListener { e ->
                         Log.e("ReadProgress", "Błąd usuwania postępu: ${e.localizedMessage}")
+                    }
+                bookmarksRef.get()
+                    .addOnSuccessListener { snapshot ->
+                        val batch = db.batch()
+                        for (doc in snapshot.documents) {
+                            batch.delete(doc.reference)
+                        }
+                        batch.commit()
+                            .addOnSuccessListener {
+                                Log.d("Bookmarks", "Usunięto zakładki dla książki $bookId")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("Bookmarks", "Błąd przy usuwaniu zakładek: ${e.localizedMessage}")
+                            }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("Bookmarks", "Błąd przy odczycie zakładek: ${e.localizedMessage}")
                     }
 
                 userDoc.get()
@@ -809,6 +826,8 @@ open class UserViewModel : ViewModel() {
         val userId = this.userId ?: return
         val userRef = db.collection("users").document(userId)
         val bookRef = db.collection("books").document(bookId)
+        val currentReadRef = userRef.collection("currentRead").document(bookId)
+        val bookmarksRef = currentReadRef.collection("bookmarks")
 
         userRef.update("finishedBooks", FieldValue.arrayUnion(bookRef))
             .addOnSuccessListener {
@@ -816,6 +835,23 @@ open class UserViewModel : ViewModel() {
             }
             .addOnFailureListener { e ->
                 Log.e("FinishedBooks", "Błąd przy dodawaniu książki: ${e.localizedMessage}")
+            }
+        bookmarksRef.get()
+            .addOnSuccessListener { snapshot ->
+                val batch = db.batch()
+                for (doc in snapshot.documents) {
+                    batch.delete(doc.reference)
+                }
+                batch.commit()
+                    .addOnSuccessListener {
+                        Log.d("Bookmarks", "Usunięto zakładki dla książki $bookId")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("Bookmarks", "Błąd przy usuwaniu zakładek: ${e.localizedMessage}")
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.e("Bookmarks", "Błąd przy odczycie zakładek: ${e.localizedMessage}")
             }
     }
     fun checkIfBookIsFinishedOrCurrent(

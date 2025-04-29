@@ -62,6 +62,9 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
         "science fiction" to "Science fiction",
         "thriller" to "Thriller"
     )
+    LaunchedEffect(Unit) {
+        userViewModel.loadCurrentBooks()
+    }
 
     LaunchedEffect(Unit) {
         try {
