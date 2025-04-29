@@ -2,11 +2,10 @@ package com.example.fluentread.screens
 
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,35 +14,68 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.fluentread.R
 import com.example.fluentread.ui.theme.*
-import com.example.fluentread.dateClass.Book
 import com.example.fluentread.viewmodel.UserViewModel
-import com.google.firebase.auth.FirebaseAuth
+import com.example.fluentread.dateClass.Book
 import com.google.firebase.firestore.DocumentReference
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
 import kotlinx.coroutines.tasks.await
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
-fun MainScreen(navController: NavController, userViewModel: UserViewModel)
- {
-     val userId = userViewModel.userId
-     val db = userViewModel.db
+fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
+    val userId = userViewModel.userId
+    val db = userViewModel.db
+    val context = LocalContext.current
+
+    var currentTitle by remember { mutableStateOf("Tytuł książki") }
+    var currentBookId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        userViewModel.loadCurrentBooks()
+    }
+
+    LaunchedEffect(Unit) {
+        if (userId != null) {
+            try {
+                val userDoc = db.collection("users").document(userId).get().await()
+                val lastReadRef = userDoc.get("lastRead") as? DocumentReference
+
+                if (lastReadRef != null) {
+                    val bookSnapshot = lastReadRef.get().await()
+                    if (bookSnapshot.exists()) {
+                        currentTitle = bookSnapshot.getString("title") ?: "Tytuł nieznany"
+                        currentBookId = bookSnapshot.id
+                    } else {
+                        currentTitle = "Brak ostatnio czytanej książki"
+                        currentBookId = null
+                    }
+                } else {
+                    currentTitle = "Brak ostatnio czytanej książki"
+                    currentBookId = null
+                }
+            } catch (e: Exception) {
+                Log.e("MainScreen", "Błąd podczas pobierania lastRead: ${e.localizedMessage}")
+            }
+        }
+    }
+
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(FluentSurfaceDark)
+            .padding(12.dp)
     ) {
-
         Spacer(modifier = Modifier.height(55.dp))
 
         Text(
@@ -51,55 +83,31 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel)
             style = FluentTypography.titleMedium,
             fontWeight = FontWeight.Medium,
             color = FluentSecondaryDark,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = 4.dp)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-
         DividerLine()
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        var currentTitle by remember { mutableStateOf("Tytuł książki") }
-        var currentBookId by remember { mutableStateOf<String?>(null) }
-
-        LaunchedEffect(Unit) {
-
-            if (userId != null) {
-                try {
-                    val userDoc = db.collection("users").document(userId).get().await()
-                    val lastReadRef = userDoc.get("lastRead") as? DocumentReference
-
-                    if (lastReadRef != null) {
-                        val bookSnapshot = lastReadRef.get().await()
-                        if (bookSnapshot.exists()) {
-                            currentTitle = bookSnapshot.getString("title") ?: "Tytuł nieznany"
-                            currentBookId = bookSnapshot.id
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("MainScreen", "Błąd podczas pobierania lastRead: ${e.localizedMessage}")
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(16.dp))
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .background(FluentBackgroundDark, shape = RoundedCornerShape(8.dp))
+                .clickable {
+                    if (currentBookId != null) {
+                        currentBookId?.let { id -> navController.navigate("bookDetails/$id") }
+                    } else {
+                        Toast.makeText(context, "Brak ostatnio czytanej książki", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 .padding(12.dp)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.bookbutton),
                 contentDescription = "Okładka książki",
-                modifier = Modifier
-                    .size(120.dp)
-                    .clickable {
-                        currentBookId?.let { id ->
-                            navController.navigate("bookDetails/$id")
-                        }
-                    }
+                modifier = Modifier.size(120.dp)
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -117,35 +125,28 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                val readChaptersCount = userViewModel.readChapters[currentBookId]?.size ?: 0
-                val totalChaptersCount = userViewModel.totalChapters[currentBookId] ?: 1
-                val progress = readChaptersCount.toFloat() / totalChaptersCount.toFloat()
+                if (currentBookId != null) {
+                    var chaptersRead by remember { mutableStateOf<List<Int>>(emptyList()) }
+                    val totalChaptersCount = userViewModel.totalChapters[currentBookId] ?: 1
+                    LaunchedEffect(currentBookId) {
+                        userViewModel.userId?.let { userId ->
+                            userViewModel.getChaptersRead(userId, currentBookId!!) { readChapters ->
+                                chaptersRead = readChapters
+                            }
+                        }
+                    }
+                    val progress = chaptersRead.size.toFloat() / totalChaptersCount.toFloat()
 
-                LinearProgressIndicator(
-                    progress = progress.coerceIn(0f, 1f),
-                    modifier = Modifier.fillMaxWidth(),
-                    color = FluentSurfaceDark
-                )
+                    LinearProgressIndicator(
+                        progress = progress.coerceIn(0f, 1f),
+                        modifier = Modifier.fillMaxWidth(),
+                        color = FluentSecondaryDark
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Moja biblioteka",
-            style = FluentTypography.titleMedium,
-            fontWeight = FontWeight.Medium,
-            color = FluentSecondaryDark,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        DividerLine()
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        CurrentReadingBooks(navController = navController,userViewModel)
+        CurrentReadingBooks(navController = navController, userViewModel = userViewModel,"main")
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -153,63 +154,17 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel)
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun CurrentReadingBooks(navController: NavController, userViewModel: UserViewModel) {
-    val userId = userViewModel.userId
-    val db = userViewModel.db
+fun CurrentReadingBooks(navController: NavController, userViewModel: UserViewModel,  sourceScreen: String) {
+    val books = userViewModel.currentBooks
+    val isLoading = userViewModel.isCurrentBooksLoading
+    val errorMessage = userViewModel.currentBooksError
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val itemWidth = (screenWidth - 40.dp) / 3
 
-    val context = LocalContext.current
-
-    var books by remember { mutableStateOf<List<Book>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(userId) {
-        if (userId != null) {
-            try {
-                Log.d("FirestoreDebug", "Fetching document for userId: $userId")
-                val userDoc = db.collection("users").document(userId).get().await()
-                val currentRead = userDoc.get("currentRead") as? List<DocumentReference> ?: emptyList()
-
-                Log.d("FirestoreDebug", "Found ${currentRead.size} book references")
-
-                val fetchedBooks = currentRead.mapNotNull { docRef ->
-                    try {
-                        val snapshot = docRef.get().await()
-                        if (snapshot.exists()) {
-                            Log.d("FirestoreDebug", "Fetched book: ${snapshot.id}")
-                            Book(
-                                id = snapshot.id,
-                                title = snapshot.getString("title") ?: "Nieznany tytuł",
-                                cover = snapshot.getString("cover") ?: "",
-                                author = snapshot.getString("author") ?: "Nieznany autor",
-                                genre = (snapshot.get("genre") as? List<*>)?.filterIsInstance<String>()?.toTypedArray() ?: emptyArray(),
-                                level = snapshot.getString("level") ?: "",
-                                wordCount = 0.0
-                            )
-                        } else {
-                            Log.w("FirestoreDebug", "Book document does not exist: ${docRef.path}")
-                            null
-                        }
-                    } catch (e: Exception) {
-                        Log.e("FirestoreDebug", "Error fetching book: ${e.localizedMessage}")
-                        null
-                    }
-                }
-
-                books = fetchedBooks
-                isLoading = false
-            } catch (e: Exception) {
-                errorMessage = "Błąd połączenia z Firestore: ${e.localizedMessage}"
-                Log.e("FirestoreDebug", "Error fetching user document: ${e.localizedMessage}", e)
-                isLoading = false
-            }
-        } else {
-            errorMessage = "Nie zalogowano użytkownika"
-            Log.e("FirestoreDebug", "UserId is null")
-            isLoading = false
-        }
-    }
+    var showDialog by remember { mutableStateOf(false) }
+    var selectedBookId by remember { mutableStateOf<String?>(null) }
 
     when {
         isLoading -> {
@@ -222,41 +177,119 @@ fun CurrentReadingBooks(navController: NavController, userViewModel: UserViewMod
                 CircularProgressIndicator()
             }
         }
-
         errorMessage != null -> {
-            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = errorMessage ?: "Wystąpił nieznany błąd",
+                    text = errorMessage,
                     color = MaterialTheme.colorScheme.error
                 )
             }
         }
-
         else -> {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 5.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "Moja biblioteka",
+                style = FluentTypography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = FluentSecondaryDark,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            DividerLine()
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .background(FluentBackgroundDark, RoundedCornerShape(8.dp))
+                    .padding(16.dp),
+                contentAlignment = Alignment.TopStart
             ) {
-                items(books) { book ->
-                    BookItem(
-                        imageUrl = book.cover,
-                        onClick = {
-                            navController.navigate("bookDetails/${book.id}")
+                if (books.isEmpty()) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Nie masz żadnych obecnie czytanych książek.",
+                            color = FluentSecondaryDark
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (sourceScreen == "main") {
+                            Text(
+                                text = "Przejdź do biblioteki",
+                                color = FluentPrimaryDark,
+                                modifier = Modifier.clickable {
+                                    navController.navigate("library")
+                                }
+                            )
+                        } else {
+                            Text(
+                                text = "Weź coś do ręki z półki ",
+                                color = FluentPrimaryDark
+                            )
                         }
-                    )
+                    }
+                } else {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        items(books) { book ->
+                            Box(modifier = Modifier.width(itemWidth)) {
+                                BookItem(
+                                    imageUrl = book.cover,
+                                    onClick = { navController.navigate("bookDetails/${book.id}") },
+                                    onLongClick = {
+                                        selectedBookId = book.id
+                                        showDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
+
+    }
+
+    if (showDialog && selectedBookId != null) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Usuń książkę") },
+            text = { Text("Czy na pewno chcesz usunąć tę książkę z obecnie czytanych?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedBookId?.let { userViewModel.removeBookFromCurrentRead(it) }
+                        showDialog = false
+                    }
+                ) {
+                    Text("Usuń", color = FluentBackgroundAccent)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDialog = false }
+                ) {
+                    Text("Anuluj", color = FluentBackgroundAccent)
+                }
+            }
+        )
     }
 }
 
-
 @Composable
-fun BookItem(imageUrl: String, onClick: () -> Unit) {
+fun BookItem(
+    imageUrl: String,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
     val painter = rememberAsyncImagePainter(
         model = imageUrl,
         placeholder = painterResource(id = R.drawable.book_cover),
@@ -269,55 +302,13 @@ fun BookItem(imageUrl: String, onClick: () -> Unit) {
         modifier = Modifier
             .size(160.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-    )
-}
-
-
-@Composable
-fun DividerLine() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .background(FluentSecondaryDark)
-            .padding(16.dp)
-    )
-}
-
-@Composable
-fun MainScreenStatic() {
-    val fakeNavController = rememberNavController()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(FluentSurfaceDark)
-    ) {
-        Text(
-            text = "Podgląd głównego ekranu (Mock)",
-            style = FluentTypography.titleLarge,
-            color = FluentSecondaryDark,
-            modifier = Modifier.padding(16.dp)
-        )
-
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(3) {
-                BookItem(
-                    imageUrl = "https://res.cloudinary.com/demo/image/upload/sample.jpg",
-                    onClick = { /* brak nawigacji w Preview */ }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onLongPress = { onLongClick() }
                 )
             }
-        }
-    }
+    )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MainScreenPreviewStatic() {
-    MainScreenStatic()
-}
 

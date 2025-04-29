@@ -18,6 +18,7 @@ val FluentSecondaryDark = Color(0xFFEDE6B1)
 val FluentBackgroundDark = Color(0xFF503D34)
 val FluentSurfaceDark = Color(0xFF685044)
 val FluentOnPrimaryDark = Color(0xFF8B6D5E)
+val FluentBackgroundAccent = Color(0xFF41342A)
 val FluentOnSecondaryDark = Color.Black
 val FluentOnBackgroundDark = Color.White
 val FluentOnSurfaceDark = Color.White

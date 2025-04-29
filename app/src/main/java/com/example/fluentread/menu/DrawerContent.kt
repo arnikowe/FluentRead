@@ -38,7 +38,6 @@ fun DrawerContent(onItemClick: (String) -> Unit, onLogout: () -> Unit) {
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
         ) {
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -78,6 +77,7 @@ fun DrawerContent(onItemClick: (String) -> Unit, onLogout: () -> Unit) {
 
             val menuItems = listOf(
                 "Strona główna" to "main",
+                "Biblioteka" to "library",
                 "Fiszki" to "screen_flashcards?bookId=dummy&chapter=dummy",
                 "Czat" to "screen_chat?bookId=dummy&chapter=dummy"
             )

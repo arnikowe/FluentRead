@@ -90,18 +90,33 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
         )
 
         Spacer(modifier = Modifier.height(8.dp))
+        var isFinished by remember { mutableStateOf<Boolean?>(null) }
+        var isCurrent by remember { mutableStateOf<Boolean?>(null) }
+        val userId = userViewModel.userId
         LaunchedEffect(bookId) {
-            userViewModel.userId?.let { userId ->
+            if (userId != null) {
+                userViewModel.checkIfBookIsFinishedOrCurrent(userId, bookId) { finished, current ->
+                    isFinished = finished
+                    isCurrent = current
+                }
+            }
+        }
+
+        LaunchedEffect(bookId, isCurrent) {
+            if (userId != null && isCurrent == true) {
                 userViewModel.getChaptersRead(userId, bookId) { readChapters ->
                     chaptersRead = readChapters
                 }
             }
         }
 
-        val progress = if (chapters.isNotEmpty()) {
-            chaptersRead.size.toFloat() / chapters.size.toFloat()
-        } else 0f
-
+        val progress = when {
+            isFinished == true && isCurrent != true -> 1f
+            isCurrent == true -> if (chapters.isNotEmpty()) {
+                chaptersRead.size.toFloat() / chapters.size.toFloat()
+            } else 0f
+            else -> 0f
+        }
         LinearProgressIndicator(
             progress = progress,
             modifier = Modifier
@@ -114,8 +129,8 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
 
         LaunchedEffect(userViewModel.userId) {
             userViewModel.userId?.let { userId ->
-                userViewModel.loadLastReadProgress(userId) { bookRefId, chapter ->
-                    if (bookRefId == bookId) {
+                userViewModel.loadLastReadProgress(userId, bookId) { returnedBookId, chapter ->
+                    if (returnedBookId != null && chapter != null) {
                         lastReadChapter = chapter
                     }
                 }

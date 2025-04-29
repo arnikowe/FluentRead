@@ -136,11 +136,11 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             } else {
                 FlashcardRepeatScreen(
                     flashcards = flashcardsState.value,
-                    userViewModel = userViewModel
+                    userViewModel = userViewModel,
+                    navController = navController
                 )
             }
         }
-
 
         composable(
             "screen_flashcard_set?bookId={bookId}&chapter={chapter}"
@@ -155,7 +155,33 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             )
         }
 
+        composable(
+            route = "summary_screen?bookTitle={bookTitle}&chapter={chapter}&correct={correct}&wrong={wrong}",
+            arguments = listOf(
+                navArgument("bookTitle") { type = NavType.StringType },
+                navArgument("chapter") { type = NavType.StringType; nullable = true },
+                navArgument("correct") { type = NavType.IntType },
+                navArgument("wrong") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val bookTitle = backStackEntry.arguments?.getString("bookTitle") ?: ""
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            val correct = backStackEntry.arguments?.getInt("correct") ?: 0
+            val wrong = backStackEntry.arguments?.getInt("wrong") ?: 0
 
+            SummaryScreen(
+                bookTitle = bookTitle,
+                chapter = chapter,
+                correctAnswers = correct,
+                wrongAnswers = wrong,
+                onRepeat = {
+                    navController.popBackStack("repeat_mode/{bookId}?chapter={chapter}", inclusive = false)
+                }
+            )
+        }
+        composable("library") {
+            LibraryScreen(navController = navController, userViewModel = userViewModel)
+        }
 
 
     }

@@ -8,8 +8,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fluentread.dateClass.Book
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
@@ -102,6 +105,63 @@ open class UserViewModel : ViewModel() {
 
     var totalChapters by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
+
+    var currentBooks by mutableStateOf<List<Book>>(emptyList())
+        private set
+
+    var isCurrentBooksLoading by mutableStateOf(true)
+        private set
+
+    var currentBooksError by mutableStateOf<String?>(null)
+        private set
+
+    fun loadCurrentBooks() {
+        val uid = userId
+        if (uid == null) {
+            currentBooksError = "Nie zalogowano użytkownika"
+            isCurrentBooksLoading = false
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val currentReadDocs = db.collection("users")
+                    .document(uid)
+                    .collection("currentRead")
+                    .get()
+                    .await()
+
+                val bookIds = currentReadDocs.documents.map { it.id }
+
+                val fetchedBooks = bookIds.mapNotNull { bookId ->
+                    try {
+                        val snapshot = db.collection("books").document(bookId).get().await()
+                        if (snapshot.exists()) {
+                            Book(
+                                id = snapshot.id,
+                                title = snapshot.getString("title") ?: "Nieznany tytuł",
+                                cover = snapshot.getString("cover") ?: "",
+                                author = snapshot.getString("author") ?: "Nieznany autor",
+                                genre = (snapshot.get("genre") as? List<*>)?.filterIsInstance<String>()?.toTypedArray()
+                                    ?: emptyArray(),
+                                level = snapshot.getString("level") ?: "",
+                                wordCount = 0.0
+                            )
+                        } else null
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                currentBooks = fetchedBooks
+            } catch (e: Exception) {
+                currentBooksError = "Błąd ładowania: ${e.localizedMessage}"
+            } finally {
+                isCurrentBooksLoading = false
+            }
+        }
+    }
+
 
     fun toggleTextSettingsDialog() {
         showTextSettingsDialog = !showTextSettingsDialog
@@ -402,31 +462,23 @@ open class UserViewModel : ViewModel() {
         dontKnowCount++
         answerHistory.add(false)
     }
-    fun updateLastRead(userId: String, bookId: String) {
-        val db = FirebaseFirestore.getInstance()
-        val userRef = db.collection("users").document(userId)
-        val bookRef = db.collection("books").document(bookId)
 
-        userRef.update("lastRead", bookRef)
-            .addOnSuccessListener {
-                Log.d("UserViewModel", "Zaktualizowano lastRead na $bookId")
-            }
-            .addOnFailureListener { e ->
-                Log.e("UserViewModel", "Błąd podczas aktualizacji lastRead: ${e.localizedMessage}")
-            }
-    }
     fun saveChapterAsRead(userId: String, bookId: String, chapter: Int) {
         val db = FirebaseFirestore.getInstance()
         val progressRef = db.collection("users").document(userId)
             .collection("readProgress").document(bookId)
 
         progressRef.get().addOnSuccessListener { snapshot ->
-            val chaptersRead = snapshot.get("chaptersRead") as? List<Long> ?: emptyList()
-            if (chapter.toLong() !in chaptersRead) {
+            val chaptersMap = snapshot.get("chaptersRead") as? Map<String, Long> ?: emptyMap()
+
+            if (!chaptersMap.containsKey(chapter.toString())) {
+                val updatedMap = chaptersMap.toMutableMap()
+                updatedMap[chapter.toString()] = System.currentTimeMillis()
+
                 progressRef.set(
                     mapOf(
                         "bookId" to bookId,
-                        "chaptersRead" to chaptersRead + chapter
+                        "chaptersRead" to updatedMap
                     )
                 )
             }
@@ -439,8 +491,8 @@ open class UserViewModel : ViewModel() {
             .collection("readProgress").document(bookId)
             .get()
             .addOnSuccessListener { snapshot ->
-                val chaptersRead = snapshot.get("chaptersRead") as? List<Long> ?: emptyList()
-                val chaptersSet = chaptersRead.map { it.toInt() }.toSet()
+                val chaptersMap = snapshot.get("chaptersRead") as? Map<String, Long> ?: emptyMap()
+                val chaptersSet = chaptersMap.keys.mapNotNull { it.toIntOrNull() }.toSet()
 
                 readChapters = readChapters.toMutableMap().apply {
                     put(bookId, chaptersSet)
@@ -453,34 +505,348 @@ open class UserViewModel : ViewModel() {
             }
     }
 
+    fun updateLastRead(userId: String, bookId: String, chapter: Int) {
+        val bookRef = db.collection("books").document(bookId)
+        val currentReadRef = db.collection("users").document(userId)
+            .collection("currentRead").document(bookId)
 
-    fun updateLastRead(userId: String, bookId: String, chapter: Int? = null) {
-        val db = FirebaseFirestore.getInstance()
-        val lastReadRef = db.collection("users").document(userId).collection("lastRead").document("info")
+        db.collection("users").document(userId)
+            .update("lastRead", bookRef)
+            .addOnSuccessListener {
+                Log.d("UserViewModel", "Zaktualizowano lastRead na $bookId")
 
-        val data = mutableMapOf<String, Any>(
-            "bookRef" to FirebaseFirestore.getInstance().collection("books").document(bookId)
-        )
-
-        if (chapter != null) {
-            data["chapter"] = chapter
-        }
-
-        lastReadRef.set(data)
+                currentReadRef.set(mapOf("chapter" to chapter))
+                    .addOnSuccessListener {
+                        Log.d("UserViewModel", "Zapisano/zaaktualizowano currentRead dla $bookId -> chapter $chapter")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("UserViewModel", "Błąd przy zapisie currentRead: ${e.localizedMessage}")
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.e("UserViewModel", "Błąd przy zapisie lastRead: ${e.localizedMessage}")
+            }
     }
 
-    fun loadLastReadProgress(userId: String, onResult: (String?, Int?) -> Unit) {
+
+    fun loadLastReadProgress(userId: String, bookId: String, onResult: (String?, Int?) -> Unit) {
         val db = FirebaseFirestore.getInstance()
-        db.collection("users").document(userId).collection("lastRead")
-            .document("info")
+        db.collection("users").document(userId)
+            .collection("currentRead").document(bookId)
             .get()
             .addOnSuccessListener { snapshot ->
-                val bookRef = snapshot.getDocumentReference("bookRef")
-                val chapter = snapshot.getLong("chapter")?.toInt()
-                onResult(bookRef?.id, chapter)
+                if (snapshot.exists()) {
+                    val chapter = snapshot.getLong("chapter")?.toInt()
+                    onResult(bookId, chapter)
+                } else {
+                    onResult(null, null)
+                }
             }
             .addOnFailureListener {
                 onResult(null, null)
             }
     }
+
+
+    //statystyki
+    fun getTotalReadChaptersInMonth(
+        userId: String,
+        year: Int,
+        month: Int,
+        onResult: (Int) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                var totalCount = 0
+                for (doc in querySnapshot.documents) {
+                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
+                    totalCount += chaptersMap.values.count { timestamp ->
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+                        calendar.get(java.util.Calendar.YEAR) == year &&
+                                (calendar.get(java.util.Calendar.MONTH) + 1) == month
+                    }
+                }
+                onResult(totalCount)
+            }
+            .addOnFailureListener {
+                onResult(0)
+            }
+    }
+    fun getTotalReadChaptersInYear(
+        userId: String,
+        year: Int,
+        onResult: (Int) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                var totalCount = 0
+                for (doc in querySnapshot.documents) {
+                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
+                    totalCount += chaptersMap.values.count { timestamp ->
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+                        calendar.get(java.util.Calendar.YEAR) == year
+                    }
+                }
+                onResult(totalCount)
+            }
+            .addOnFailureListener {
+                onResult(0)
+            }
+    }
+    fun getTotalDailyReadingStats(
+        userId: String,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                val dayCounts = mutableMapOf<String, Int>()
+                for (doc in querySnapshot.documents) {
+                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
+                    for (timestamp in chaptersMap.values) {
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+                        val date = "%04d-%02d-%02d".format(
+                            calendar.get(java.util.Calendar.YEAR),
+                            calendar.get(java.util.Calendar.MONTH) + 1,
+                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                        )
+                        dayCounts[date] = (dayCounts[date] ?: 0) + 1
+                    }
+                }
+                onResult(dayCounts)
+            }
+            .addOnFailureListener {
+                onResult(emptyMap())
+            }
+    }
+    fun getReadingStreak(
+        userId: String,
+        onResult: (Int) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                val readingDays = mutableSetOf<String>()
+
+                for (doc in querySnapshot.documents) {
+                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
+                    for (timestamp in chaptersMap.values) {
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+                        val date = "%04d-%02d-%02d".format(
+                            calendar.get(java.util.Calendar.YEAR),
+                            calendar.get(java.util.Calendar.MONTH) + 1,
+                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                        )
+                        readingDays.add(date)
+                    }
+                }
+
+                if (readingDays.isEmpty()) {
+                    onResult(0)
+                    return@addOnSuccessListener
+                }
+
+                val today = java.util.Calendar.getInstance()
+                var streak = 0
+
+                while (true) {
+                    val date = "%04d-%02d-%02d".format(
+                        today.get(java.util.Calendar.YEAR),
+                        today.get(java.util.Calendar.MONTH) + 1,
+                        today.get(java.util.Calendar.DAY_OF_MONTH)
+                    )
+
+                    if (readingDays.contains(date)) {
+                        streak++
+                        today.add(java.util.Calendar.DAY_OF_MONTH, -1)
+                    } else {
+                        break
+                    }
+                }
+
+                onResult(streak)
+            }
+            .addOnFailureListener {
+                onResult(0)
+            }
+    }
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getLongestReadingStreak(
+        userId: String,
+        onResult: (Int) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                val readingDays = mutableSetOf<String>()
+
+                for (doc in querySnapshot.documents) {
+                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
+                    for (timestamp in chaptersMap.values) {
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+                        val date = "%04d-%02d-%02d".format(
+                            calendar.get(java.util.Calendar.YEAR),
+                            calendar.get(java.util.Calendar.MONTH) + 1,
+                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                        )
+                        readingDays.add(date)
+                    }
+                }
+
+                if (readingDays.isEmpty()) {
+                    onResult(0)
+                    return@addOnSuccessListener
+                }
+
+                val sortedDays = readingDays.map {
+                    java.time.LocalDate.parse(it)
+                }.sorted()
+
+                var maxStreak = 1
+                var currentStreak = 1
+
+                for (i in 1 until sortedDays.size) {
+                    val prev = sortedDays[i - 1]
+                    val curr = sortedDays[i]
+
+                    if (prev.plusDays(1) == curr) {
+                        currentStreak++
+                        if (currentStreak > maxStreak) {
+                            maxStreak = currentStreak
+                        }
+                    } else {
+                        currentStreak = 1
+                    }
+                }
+
+                onResult(maxStreak)
+            }
+            .addOnFailureListener {
+                onResult(0)
+            }
+    }
+    fun getStreakBadge(maxStreak: Int): String {
+        return when {
+            maxStreak >= 100 -> "🏆 Legendarny streak! 100+ dni!"
+            maxStreak >= 60 -> "🏆 Mistrz czytania! 60+ dni!"
+            maxStreak >= 30 -> "🔥 Mega streak! 30+ dni!"
+            maxStreak >= 14 -> "🔥🔥🔥 Super streak! 14+ dni!"
+            maxStreak >= 7 -> "🔥 Świetny start! 7 dni!"
+            maxStreak >= 3 -> "📖 Dobry początek! 3 dni!"
+            maxStreak >= 1 -> "📖 Pierwszy dzień!"
+            else -> "❗️ Jeszcze brak streaka"
+        }
+    }
+    fun removeBookFromCurrentRead(bookId: String) {
+        val userId = this.userId ?: return
+        val userDoc = db.collection("users").document(userId)
+        val currentReadRef = userDoc.collection("currentRead").document(bookId)
+        val readProgressRef = userDoc.collection("readProgress").document(bookId)
+        val lastReadField = "lastRead"
+
+        currentReadRef.delete()
+            .addOnSuccessListener {
+                Log.d("CurrentRead", "Usunięto książkę $bookId z currentRead")
+
+                readProgressRef.delete()
+                    .addOnSuccessListener {
+                        Log.d("ReadProgress", "Usunięto postęp czytania dla książki $bookId")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("ReadProgress", "Błąd usuwania postępu: ${e.localizedMessage}")
+                    }
+
+                userDoc.get()
+                    .addOnSuccessListener { userSnapshot ->
+                        val lastReadRef = userSnapshot.getDocumentReference(lastReadField)
+                        if (lastReadRef?.id == bookId) {
+                            userDoc.update(lastReadField, null)
+                                .addOnSuccessListener {
+                                    Log.d("LastRead", "Usunięto lastRead bo wskazywał na $bookId")
+
+                                    userDoc.collection("currentRead")
+                                        .get()
+                                        .addOnSuccessListener { currentReadSnapshot ->
+                                            val firstDoc = currentReadSnapshot.documents.firstOrNull()
+                                            if (firstDoc != null) {
+                                                val newBookRef = db.collection("books").document(firstDoc.id)
+                                                userDoc.update(lastReadField, newBookRef)
+                                                    .addOnSuccessListener {
+                                                        Log.d("LastRead", "Ustawiono nowy lastRead na ${firstDoc.id}")
+                                                    }
+                                                    .addOnFailureListener { e ->
+                                                        Log.e("LastRead", "Błąd przy ustawianiu nowego lastRead: ${e.localizedMessage}")
+                                                    }
+                                            }
+                                        }
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("LastRead", "Błąd usuwania lastRead: ${e.localizedMessage}")
+                                }
+                        }
+                    }
+
+                loadCurrentBooks()
+            }
+            .addOnFailureListener { e ->
+                Log.e("CurrentRead", "Błąd usuwania książki: ${e.localizedMessage}")
+            }
+    }
+
+    fun addToFinished(bookId: String) {
+        val userId = this.userId ?: return
+        val userRef = db.collection("users").document(userId)
+        val bookRef = db.collection("books").document(bookId)
+
+        userRef.update("finishedBooks", FieldValue.arrayUnion(bookRef))
+            .addOnSuccessListener {
+                Log.d("FinishedBooks", "Dodano książkę $bookId do finishedBooks")
+            }
+            .addOnFailureListener { e ->
+                Log.e("FinishedBooks", "Błąd przy dodawaniu książki: ${e.localizedMessage}")
+            }
+    }
+    fun checkIfBookIsFinishedOrCurrent(
+        userId: String,
+        bookId: String,
+        onResult: (isFinished: Boolean, isCurrent: Boolean) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        val userRef = db.collection("users").document(userId)
+        val bookRef = db.collection("books").document(bookId)
+        val currentReadDoc = userRef.collection("currentRead").document(bookId)
+
+        userRef.get()
+            .addOnSuccessListener { userSnapshot ->
+                val finishedList = userSnapshot.get("finishedBooks") as? List<*>
+                val isFinished = finishedList?.any {
+                    (it as? DocumentReference)?.id == bookId
+                } ?: false
+
+                currentReadDoc.get()
+                    .addOnSuccessListener { docSnapshot ->
+                        val isCurrent = docSnapshot.exists()
+                        onResult(isFinished, isCurrent)
+                    }
+                    .addOnFailureListener {
+                        onResult(isFinished, false)
+                    }
+            }
+            .addOnFailureListener {
+                onResult(false, false)
+            }
+    }
+
 }

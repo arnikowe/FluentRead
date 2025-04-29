@@ -33,6 +33,7 @@ import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
@@ -110,7 +111,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
     }
     LaunchedEffect(bookId) {
         if (bookId != null && userId != null) {
-            userViewModel.updateLastRead(userId, bookId)
+            chapter?.toInt()?.let { userViewModel.updateLastRead(userId, bookId, it) }
         }
     }
 
@@ -237,23 +238,54 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
 
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
+                    var isLastChapter by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(bookId, chapter) {
+                        if (bookId != null && chapter != null) {
+                            try {
+                                val chaptersSnapshot = userViewModel.db.collection("books").document(bookId).collection("chapters").get().await()
+                                val totalChapters = chaptersSnapshot.size()
+                                val currentChapter = chapter.toIntOrNull() ?: 0
+                                isLastChapter = currentChapter >= totalChapters
+                            } catch (e: Exception) {
+                                Log.e("NextChapter", "Błąd sprawdzania rozdziału: ${e.localizedMessage}")
+                            }
+                        }
+                    }
                     Button(
                         onClick = {
-                            val nextChapter = (chapter?.toIntOrNull() ?: 0) + 1
                             if (bookId != null && chapter != null) {
-                                userViewModel.saveChapterAsRead(userId, bookId, chapter.toInt())
-                                userViewModel.updateLastRead(userId, bookId, nextChapter)
+                                userViewModel.viewModelScope.launch {
+                                    try {
+                                        val nextChapter = (chapter.toIntOrNull() ?: 0) + 1
+
+                                        if (isLastChapter) {
+                                            userViewModel.removeBookFromCurrentRead(bookId)
+                                            userViewModel.addToFinished(bookId)
+                                            navController.navigate("bookDetails/$bookId")
+                                        } else {
+                                            userViewModel.saveChapterAsRead(userId, bookId, chapter.toInt())
+                                            userViewModel.updateLastRead(userId, bookId, nextChapter)
+                                            navController.navigate("screen_read?bookId=$bookId&chapter=$nextChapter")
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("NextChapter", "Błąd obsługi przycisku: ${e.localizedMessage}")
+                                    }
+                                }
                             }
-                            val route = "screen_read?bookId=$bookId&chapter=$nextChapter"
-                            navController.navigate(route)
                         },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = FluentBackgroundDark,
                             contentColor = FluentSecondaryDark
                         )
                     ) {
-                        Text("Następny rozdział", style = FluentTypography.titleMedium)
+                        Text(
+                            text = if (isLastChapter) "Koniec. Powrót do spisu treści" else "Następny rozdział",
+                            style = FluentTypography.titleMedium
+                        )
                     }
                 }
             }

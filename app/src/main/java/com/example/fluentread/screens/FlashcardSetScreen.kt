@@ -204,17 +204,17 @@ fun FlashcardSetScreen(
             confirmButton = {
                 Row {
                     TextButton(onClick = {
-                        sortType = selectedSortType
-                        sortDialogVisible = false
-                    }) {
-                        Text("Zastosuj")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(onClick = {
                         sortDialogVisible = false
                         selectedSortType = sortType
                     }) {
                         Text("Zamknij")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = {
+                        sortType = selectedSortType
+                        sortDialogVisible = false
+                    }) {
+                        Text("Zastosuj")
                     }
                 }
             },

@@ -26,6 +26,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
+import androidx.navigation.NavHostController
 import com.example.fluentread.R
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -37,7 +38,8 @@ import kotlin.math.roundToInt
 @Composable
 fun FlashcardRepeatScreen(
     flashcards: List<DocumentSnapshot>,
-    userViewModel: UserViewModel
+    userViewModel: UserViewModel,
+    navController: NavHostController
 ) {
     val userId = userViewModel.userId ?: return
     LaunchedEffect(Unit) {
@@ -104,20 +106,14 @@ fun FlashcardRepeatScreen(
     val offsetX = remember { mutableFloatStateOf(0f) }
     val coroutineScope = rememberCoroutineScope()
 
-
     if (userViewModel.sessionFinished) {
-        SummaryScreen(
-            bookTitle = userViewModel.bookTitle,
-            chapter = userViewModel.currentChapter,
-            correctAnswers = userViewModel.knowCount,
-            wrongAnswers = userViewModel.dontKnowCount,
-            onRepeat = {
-                userViewModel.resetFlashcards(userViewModel.currentFlashcards)
-            }
-        )
+        LaunchedEffect(Unit) {
+            navController.navigate(
+                "summary_screen?bookTitle=${userViewModel.bookTitle}&chapter=${userViewModel.currentChapter}&correct=${userViewModel.knowCount}&wrong=${userViewModel.dontKnowCount}"
+            )
+        }
         return
     }
-
 
     Box(
         modifier = Modifier

@@ -54,13 +54,12 @@ fun FlashcardsScreen(
 
         val bookList = mutableListOf<Triple<Book, Int, String>>()
 
-        // Dodaj ulubione jako osobny "zestaw"
         if (favoriteIds.isNotEmpty()) {
             val favBook = Book(
                 id = "favorites",
                 title = "Ulubione",
                 author = "",
-                cover = "", // lokalna okładka w UI
+                cover = "",
                 genre = arrayOf(),
                 level = "",
                 wordCount = favoriteIds.size.toDouble()
