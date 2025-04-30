@@ -364,6 +364,7 @@ open class UserViewModel : ViewModel() {
         })
     }
 
+
     fun saveFlashcard(
         bookId: String,
         chapter: String,
@@ -371,6 +372,7 @@ open class UserViewModel : ViewModel() {
         word: String,
         translation: String,
         note: String,
+        contextSentence: String,
         onSuccess: () -> Unit,
         onError: () -> Unit
     ) {
@@ -385,6 +387,7 @@ open class UserViewModel : ViewModel() {
                     "word" to word,
                     "translation" to translation,
                     "note" to note,
+                    "context" to contextSentence,
                     "bookId" to bookId,
                     "chapter" to chapter,
                     "timestamp" to System.currentTimeMillis()
@@ -398,6 +401,7 @@ open class UserViewModel : ViewModel() {
             }
         }
     }
+
 
     @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     fun goToPreviousFlashcard() {
@@ -447,6 +451,15 @@ open class UserViewModel : ViewModel() {
         sessionFinished = false
         currentFlashcards = if (shuffleEnabled) original.shuffled() else original
     }
+    fun resetFlashcardSession() {
+        sessionFinished = false
+        flashcardIndex = 0
+        knowCount = 0
+        dontKnowCount = 0
+        answerHistory.clear()
+        showTranslation = false
+    }
+
 
     fun toggleTranslation() {
         showTranslation = !showTranslation
@@ -904,7 +917,9 @@ open class UserViewModel : ViewModel() {
                     .get()
                     .addOnSuccessListener { currentReadDoc ->
                         val currentChapter = currentReadDoc.getLong("chapter")?.toInt()
-                        onResult(currentChapter == chapter)
+                        if (currentChapter != null) {
+                            onResult(currentChapter > chapter)
+                        }
                     }
                     .addOnFailureListener {
                         onResult(false)

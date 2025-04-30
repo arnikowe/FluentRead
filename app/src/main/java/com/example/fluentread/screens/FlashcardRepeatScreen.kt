@@ -42,6 +42,7 @@ fun FlashcardRepeatScreen(
     navController: NavHostController
 ) {
     val userId = userViewModel.userId ?: return
+
     LaunchedEffect(Unit) {
         userViewModel.resetFlashcards(flashcards)
         val initialFlashcards = if (userViewModel.shuffleFlashcards) {
@@ -106,14 +107,20 @@ fun FlashcardRepeatScreen(
     val offsetX = remember { mutableFloatStateOf(0f) }
     val coroutineScope = rememberCoroutineScope()
 
-    if (userViewModel.sessionFinished) {
+    val navigatedToSummary = remember { mutableStateOf(false) }
+
+    if (userViewModel.sessionFinished ) {
         LaunchedEffect(Unit) {
             navController.navigate(
-                "summary_screen?bookTitle=${userViewModel.bookTitle}&chapter=${userViewModel.currentChapter}&correct=${userViewModel.knowCount}&wrong=${userViewModel.dontKnowCount}"
+                "summary_screen_flashcards?bookTitle=${userViewModel.bookTitle}" +
+                        "&chapter=${userViewModel.currentChapter}" +
+                        "&correct=${userViewModel.knowCount}" +
+                        "&wrong=${userViewModel.dontKnowCount}"
             )
         }
         return
     }
+
 
     Box(
         modifier = Modifier

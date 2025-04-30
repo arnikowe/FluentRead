@@ -134,7 +134,8 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_filter),
-                    contentDescription = "Filtr"
+                    contentDescription = "Filtr",
+                    tint = FluentBackgroundDark
                 )
             }
         }

@@ -22,7 +22,8 @@ fun SummaryScreen(
     chapter: String? = null,
     correctAnswers: Int,
     wrongAnswers: Int,
-    onRepeat: () -> Unit
+    onRepeat: () -> Unit,
+    onBack: () -> Unit
 ) {
     val totalAnswers = correctAnswers + wrongAnswers
     val correctRatio = if (totalAnswers == 0) 0f else correctAnswers / totalAnswers.toFloat()
@@ -152,9 +153,9 @@ fun SummaryScreen(
                 onClick = onRepeat,
                 modifier = uniformElementModifier,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent
+                    containerColor = FluentBackgroundDark
                 ),
-                border = BorderStroke(2.dp, FluentSecondaryDark),
+                //border = BorderStroke(2.dp, FluentSecondaryDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
@@ -164,6 +165,25 @@ fun SummaryScreen(
                     fontWeight = FontWeight.Bold
                 )
             }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onBack,
+                modifier = uniformElementModifier,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent
+                ),
+                border = BorderStroke(2.dp, FluentSecondaryDark),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Powrót",
+                    color = Color(0xFFF6EFC6),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
         }
     }
 }

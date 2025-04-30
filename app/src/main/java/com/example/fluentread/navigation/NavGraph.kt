@@ -156,7 +156,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
 
         composable(
-            route = "summary_screen?bookTitle={bookTitle}&chapter={chapter}&correct={correct}&wrong={wrong}",
+            route = "summary_screen_flashcards?bookTitle={bookTitle}&chapter={chapter}&correct={correct}&wrong={wrong}",
             arguments = listOf(
                 navArgument("bookTitle") { type = NavType.StringType },
                 navArgument("chapter") { type = NavType.StringType; nullable = true },
@@ -175,7 +175,12 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                 correctAnswers = correct,
                 wrongAnswers = wrong,
                 onRepeat = {
+                    userViewModel. resetFlashcardSession()
                     navController.popBackStack("repeat_mode/{bookId}?chapter={chapter}", inclusive = false)
+                },
+                onBack = {
+                    userViewModel. resetFlashcardSession()
+                    navController.popBackStack("flashcard_set/$bookTitle&chapter=$chapter", false)
                 }
             )
         }
@@ -186,6 +191,207 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         composable("chat_library") {
             ChatLibraryScreen(userViewModel = userViewModel, navController = navController)
         }
+
+        composable(
+            "exercise_selector?bookId={bookId}&chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType },
+                navArgument("chapter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId")!!
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            ExerciseMenuScreen(bookId = bookId, chapter = chapter, navController = navController, userViewModel=userViewModel)
+        }
+        composable(
+            route = "fill_gaps_screen/{bookId}?chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType },
+                navArgument("chapter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: return@composable
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            FillGapsScreen(
+                navController = navController,
+                bookId = bookId,
+                chapter = chapter,
+                userViewModel = userViewModel
+            )
+        }
+
+        composable(
+            route = "match_pairs_screen/{bookId}?chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType },
+                navArgument("chapter") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: return@composable
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            MatchPairsScreen(
+                navController = navController,
+                bookId = bookId,
+                chapter = chapter,
+                userViewModel = userViewModel
+            )
+        }
+        composable(
+            route = "anagram_screen/{bookId}?chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType },
+                navArgument("chapter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: return@composable
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            AnagramScreen(
+                navController = navController,
+                bookId = bookId,
+                chapter = chapter,
+                userViewModel = userViewModel
+            )
+        }
+        composable(
+            route = "multiple_choice_screen/{bookId}?chapter={chapter}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType },
+                navArgument("chapter") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId")!!
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            MultipleChoiceScreen(navController, bookId, chapter, userViewModel)
+        }
+        composable(
+            "summary_screen_fill?bookTitle={bookTitle}&chapter={chapter}&correct={correct}&wrong={wrong}",
+            arguments = listOf(
+                navArgument("bookTitle") { type = NavType.StringType },
+                navArgument("chapter") { type = NavType.StringType; nullable = true },
+                navArgument("correct") { type = NavType.IntType },
+                navArgument("wrong") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val bookTitle = backStackEntry.arguments?.getString("bookTitle") ?: ""
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            val correct = backStackEntry.arguments?.getInt("correct") ?: 0
+            val wrong = backStackEntry.arguments?.getInt("wrong") ?: 0
+
+            SummaryScreen(
+                bookTitle = bookTitle,
+                chapter = chapter,
+                correctAnswers = correct,
+                wrongAnswers = wrong,
+                onRepeat = {
+                    navController.navigate("fill_gaps_screen/$bookTitle?chapter=$chapter")
+                },
+                onBack = {
+                    navController.popBackStack("exercise_selector?bookId=$bookTitle&chapter=$chapter", false)
+                }
+            )
+        }
+        composable(
+            "summary_screen_quiz?bookTitle={bookTitle}&chapter={chapter}&correct={correct}&wrong={wrong}",
+            arguments = listOf(
+                navArgument("bookTitle") { type = NavType.StringType },
+                navArgument("chapter") { type = NavType.StringType; nullable = true },
+                navArgument("correct") { type = NavType.IntType },
+                navArgument("wrong") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val bookTitle = backStackEntry.arguments?.getString("bookTitle") ?: ""
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            val correct = backStackEntry.arguments?.getInt("correct") ?: 0
+            val wrong = backStackEntry.arguments?.getInt("wrong") ?: 0
+
+            SummaryScreen(
+                bookTitle = bookTitle,
+                chapter = chapter,
+                correctAnswers = correct,
+                wrongAnswers = wrong,
+                onRepeat = {
+                    navController.navigate("multiple_choice_screen/$bookTitle?chapter=$chapter")
+                },
+                onBack = {
+                    navController.popBackStack("exercise_selector?bookId=$bookTitle&chapter=$chapter", false)
+                }
+            )
+        }
+        composable(
+            "summary_screen_match?bookTitle={bookTitle}&chapter={chapter}&correct={correct}&wrong={wrong}",
+            arguments = listOf(
+                navArgument("bookTitle") { type = NavType.StringType },
+                navArgument("chapter") { type = NavType.StringType; nullable = true },
+                navArgument("correct") { type = NavType.IntType },
+                navArgument("wrong") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val bookTitle = backStackEntry.arguments?.getString("bookTitle") ?: ""
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            val correct = backStackEntry.arguments?.getInt("correct") ?: 0
+            val wrong = backStackEntry.arguments?.getInt("wrong") ?: 0
+
+            SummaryScreen(
+                bookTitle = bookTitle,
+                chapter = chapter,
+                correctAnswers = correct,
+                wrongAnswers = wrong,
+                onRepeat = {
+                    navController.navigate("match_pairs_screen/$bookTitle?chapter=$chapter")
+                },
+                onBack = {
+                    navController.popBackStack("exercise_selector?bookId=$bookTitle&chapter=$chapter", false)
+                }
+            )
+        }
+        composable(
+            route = "summary_screen_anagram?bookTitle={bookTitle}&chapter={chapter}&correct={correct}&wrong={wrong}",
+            arguments = listOf(
+                navArgument("bookTitle") { type = NavType.StringType },
+                navArgument("chapter") { type = NavType.StringType; nullable = true },
+                navArgument("correct") { type = NavType.IntType },
+                navArgument("wrong") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val bookTitle = backStackEntry.arguments?.getString("bookTitle") ?: ""
+            val chapter = backStackEntry.arguments?.getString("chapter")
+            val correct = backStackEntry.arguments?.getInt("correct") ?: 0
+            val wrong = backStackEntry.arguments?.getInt("wrong") ?: 0
+
+            SummaryScreen(
+                bookTitle = bookTitle,
+                chapter = chapter,
+                correctAnswers = correct,
+                wrongAnswers = wrong,
+                onRepeat = {
+                    navController.navigate("anagram_screen/$bookTitle?chapter=$chapter")
+                },
+                onBack = {
+                    navController.popBackStack("exercise_selector?bookId=$bookTitle&chapter=$chapter", false)
+                }
+            )
+        }
+
 
     }
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import androidx.navigation.NavHostController
@@ -108,7 +109,7 @@ fun ChatLibraryScreen(
             leadingIcon = {
                 Icon(Icons.Default.Search, contentDescription = "Szukaj", tint = Color.White)
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp,end=12.dp,top=12.dp)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -128,7 +129,7 @@ fun ChatLibraryScreen(
                         .clickable {
                             expandedBookId.value = if (expandedBookId.value == bookId) null else bookId
                         }
-                        .padding(top = 16.dp)
+                        .padding(top = 16.dp,bottom=16.dp, start = 8.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -139,7 +140,10 @@ fun ChatLibraryScreen(
                             color = Color.White,
                             style = FluentTypography.bodyMedium,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
+                            fontSize = 20.sp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 12.dp)
                         )
                     }
 

@@ -30,7 +30,7 @@ import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import kotlinx.coroutines.tasks.await
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
+
 @Composable
 fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
     val userId = userViewModel.userId
@@ -39,6 +39,8 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
 
     var currentTitle by remember { mutableStateOf("Tytuł książki") }
     var currentBookId by remember { mutableStateOf<String?>(null) }
+    var chaptersRead by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var totalChapters by remember { mutableStateOf(1) }
 
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentBooks()
@@ -53,8 +55,18 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
                 if (lastReadRef != null) {
                     val bookSnapshot = lastReadRef.get().await()
                     if (bookSnapshot.exists()) {
+                        val bookId = bookSnapshot.id
+                        currentBookId = bookId
                         currentTitle = bookSnapshot.getString("title") ?: "Tytuł nieznany"
-                        currentBookId = bookSnapshot.id
+
+                        val chaptersSnapshot = db.collection("books").document(bookId)
+                            .collection("chapters").get().await()
+                        totalChapters = chaptersSnapshot.size().coerceAtLeast(1)
+
+                        val readProgressSnapshot = db.collection("users").document(userId)
+                            .collection("readProgress").document(bookId).get().await()
+                        val chaptersMap = readProgressSnapshot.get("chaptersRead") as? Map<*, *>
+                        chaptersRead = chaptersMap?.keys?.mapNotNull { it?.toString()?.toIntOrNull() } ?: emptyList()
                     } else {
                         currentTitle = "Brak ostatnio czytanej książki"
                         currentBookId = null
@@ -68,7 +80,6 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
             }
         }
     }
-
 
     Column(
         modifier = Modifier
@@ -97,7 +108,7 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
                 .background(FluentBackgroundDark, shape = RoundedCornerShape(8.dp))
                 .clickable {
                     if (currentBookId != null) {
-                        currentBookId?.let { id -> navController.navigate("bookDetails/$id") }
+                        navController.navigate("bookDetails/$currentBookId")
                     } else {
                         Toast.makeText(context, "Brak ostatnio czytanej książki", Toast.LENGTH_SHORT).show()
                     }
@@ -126,17 +137,7 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 if (currentBookId != null) {
-                    var chaptersRead by remember { mutableStateOf<List<Int>>(emptyList()) }
-                    val totalChaptersCount = userViewModel.totalChapters[currentBookId] ?: 1
-                    LaunchedEffect(currentBookId) {
-                        userViewModel.userId?.let { userId ->
-                            userViewModel.getChaptersRead(userId, currentBookId!!) { readChapters ->
-                                chaptersRead = readChapters
-                            }
-                        }
-                    }
-                    val progress = chaptersRead.size.toFloat() / totalChaptersCount.toFloat()
-
+                    val progress = chaptersRead.size.toFloat() / totalChapters.toFloat()
                     LinearProgressIndicator(
                         progress = progress.coerceIn(0f, 1f),
                         modifier = Modifier.fillMaxWidth(),
@@ -146,13 +147,13 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
             }
         }
 
-        CurrentReadingBooks(navController = navController, userViewModel = userViewModel,"main")
+        CurrentReadingBooks(navController = navController, userViewModel = userViewModel, sourceScreen = "main")
 
         Spacer(modifier = Modifier.height(24.dp))
-
         DividerLine()
     }
 }
+
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable

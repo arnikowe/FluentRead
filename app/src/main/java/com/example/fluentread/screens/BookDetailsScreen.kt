@@ -215,20 +215,24 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                 .background(color = FluentBackgroundDark)
                                 .padding(12.dp)
                         ) {
-                            listOf("Read", "Chat", "Flashcards").forEach { action ->
+                            listOf("Czytanie", "Konwersacje", "Fiszki", "Ćwiczenia").forEach { action ->
+
                                 val iconRes = when (action) {
-                                    "Read" -> R.drawable.book_text_icon
-                                    "Chat" -> R.drawable.chat_text_icon
-                                    "Flashcards" -> R.drawable.flashcard_text_icon
+                                    "Czytanie" -> R.drawable.book_text_icon
+                                    "Konwersacje" -> R.drawable.chat_text_icon
+                                    "Fiszki" -> R.drawable.flashcard_text_icon
+                                    "Ćwiczenia" -> R.drawable.exercise_icon
                                     else -> R.drawable.ic_launcher_foreground
                                 }
 
                                 val route = when (action) {
-                                    "Read" -> "screen_read?bookId=$bookId&chapter=$chapterInt"
-                                    "Chat" -> "screen_chat?bookId=$bookId&chapter=$chapterInt"
-                                    "Flashcards" -> "screen_flashcard_set?bookId=$bookId&chapter=$chapterInt"
+                                    "Czytanie" -> "screen_read?bookId=$bookId&chapter=$chapterInt"
+                                    "Konwersacje" -> "screen_chat?bookId=$bookId&chapter=$chapterInt"
+                                    "Fiszki" -> "screen_flashcard_set?bookId=$bookId&chapter=$chapterInt"
+                                    "Ćwiczenia" -> "exercise_selector?bookId=$bookId&chapter=$chapterInt"
                                     else -> ""
                                 }
+
 
                                 val isFlashcardAvailable = availableFlashcards[chapterInt] == true
 
@@ -237,30 +241,39 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                         .fillMaxWidth()
                                         .padding(vertical = 6.dp)
                                         .background(
-                                            color = if (action == "Flashcards" && !isFlashcardAvailable) FluentSurfaceDark.copy(alpha = 0.4f) else FluentSurfaceDark,
+                                            color = if (action == "Fiszki" && !isFlashcardAvailable) FluentSurfaceDark.copy(alpha = 0.4f) else FluentSurfaceDark,
                                             shape = RoundedCornerShape(8.dp)
                                         )
                                         .then(
-                                            if (action == "Flashcards" && !isFlashcardAvailable) Modifier
+                                            if (action == "Fiszki" && !isFlashcardAvailable) Modifier
                                             else Modifier.clickable {
-                                                if (action == "Read") {
-                                                    navController.navigate(route) {
-                                                        popUpTo("screen_book_details") {
-                                                            inclusive = false
+                                                when (action) {
+                                                    "Czytanie" -> {
+                                                        navController.navigate(route) {
+                                                            popUpTo("screen_book_details") { inclusive = false }
+                                                            launchSingleTop = true
                                                         }
-                                                        launchSingleTop = true
                                                     }
-                                                }
-                                                if (action == "Chat") {
-                                                userViewModel.shouldAllowChat(bookId, chapterInt) { isAllowed ->
-                                                    if (isAllowed) {
+                                                    "Konwersacje" -> {
+                                                        userViewModel.shouldAllowChat(bookId, chapterInt) { isAllowed ->
+                                                            if (isAllowed) {
+                                                                navController.navigate(route)
+                                                            } else {
+                                                                pendingChatChapter.value = chapterInt
+                                                                showDialog.value = true
+                                                            }
+                                                        }
+                                                    }
+                                                    "Fiszki" -> {
+                                                        navController.navigate(route) {
+                                                            popUpTo("screen_book_details") { inclusive = false }
+                                                            launchSingleTop = true
+                                                        }
+                                                    }
+                                                    "Ćwiczenia" -> {
                                                         navController.navigate(route)
-                                                    } else {
-                                                        pendingChatChapter.value = chapterInt
-                                                        showDialog.value = true
                                                     }
                                                 }
-                                            }
 
                                             }
                                         )

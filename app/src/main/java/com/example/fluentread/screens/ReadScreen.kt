@@ -90,6 +90,8 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
     )
     var selectedTextColor by remember { mutableStateOf(textColor) }
     var selectedBackgroundColor by remember { mutableStateOf(backgroundColor) }
+    var detectedSentence by remember { mutableStateOf("") }
+
     val availableFonts = listOf(
         FontFamily.Default,
         FontFamily.Serif,
@@ -440,10 +442,10 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
         LaunchedEffect(cleanedWord, translationRequested) {
             if (!translationRequested) {
                 translationRequested = true
-                val sentence = extractSentence(content, cleanedWord)
-                Log.d("ExtractedSentence", "Word: $cleanedWord → Sentence: $sentence")
-                userViewModel.translateWord(cleanedWord, sentence) { result ->
-                    translation = cleanTranslation(result.toLowerCase())
+                detectedSentence = extractSentence(content, cleanedWord)
+                Log.d("ExtractedSentence", "Word: $cleanedWord → Sentence: $detectedSentence")
+                userViewModel.translateWord(cleanedWord, detectedSentence) { result ->
+                translation = cleanTranslation(result.toLowerCase())
                 }
             }
         }
@@ -496,6 +498,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                             cleanedWord.lowercase(),
                             translation,
                             note,
+                            contextSentence = detectedSentence,
                             onSuccess = {
                                 Toast.makeText(context, "Dodano do fiszek", Toast.LENGTH_SHORT).show()
                                 selectedWord = null
