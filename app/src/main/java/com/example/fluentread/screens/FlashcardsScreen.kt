@@ -66,6 +66,19 @@ fun FlashcardsScreen(
             )
             bookList.add(Triple(favBook, favoriteIds.size, "favorites"))
         }
+        val allFlashcardsCount = flashcardDocs.count { it.id != "favorite" }
+        if (allFlashcardsCount > 0) {
+            val allBook = Book(
+                id = "all_flashcards",
+                title = "Wszystkie fiszki",
+                author = "",
+                cover = "",
+                genre = arrayOf(),
+                level = "",
+                wordCount = allFlashcardsCount.toDouble()
+            )
+            bookList.add(Triple(allBook, allFlashcardsCount, "all_flashcards"))
+        }
 
         for ((bookIdKey, count) in bookIdToCount) {
             try {
@@ -130,7 +143,7 @@ fun FlashcardsScreen(
                     ) {
                         Row(modifier = Modifier.padding(4.dp)) {
                             AsyncImage(
-                                model = if (book.id == "favorites") R.drawable.book_cover else book.cover,
+                                model = if (book.id == "favorites" || book.id == "all_flashcards") R.drawable.book_cover else book.cover,
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(100.dp)

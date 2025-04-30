@@ -30,6 +30,9 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
     val chapters = userViewModel.chapters
     var lastReadChapter by remember { mutableStateOf<Int?>(null) }
     var chaptersRead by remember { mutableStateOf<List<Int>>(emptyList()) }
+    val showDialog = remember { mutableStateOf(false) }
+    val pendingChatChapter = remember { mutableStateOf<Int?>(null) }
+
 
 
     LaunchedEffect(bookId) {
@@ -247,9 +250,18 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                                         }
                                                         launchSingleTop = true
                                                     }
-                                                } else {
-                                                    navController.navigate(route)
                                                 }
+                                                if (action == "Chat") {
+                                                userViewModel.shouldAllowChat(bookId, chapterInt) { isAllowed ->
+                                                    if (isAllowed) {
+                                                        navController.navigate(route)
+                                                    } else {
+                                                        pendingChatChapter.value = chapterInt
+                                                        showDialog.value = true
+                                                    }
+                                                }
+                                            }
+
                                             }
                                         )
                                         .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -290,4 +302,36 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+    if (showDialog.value && pendingChatChapter.value != null) {
+        AlertDialog(
+            onDismissRequest = { showDialog.value = false },
+            title = { Text("Rozdział nieprzeczytany") },
+            text = { Text("Nie przeczytałeś jeszcze tego rozdziału. Czy na pewno chcesz przeprowadzić konwersację?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val chapter = pendingChatChapter.value!!
+                        showDialog.value = false
+                        navController.navigate("screen_chat?bookId=$bookId&chapter=$chapter")
+                    }
+                ) {
+                    Text("Przejdź")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDialog.value = false
+                        pendingChatChapter.value = null
+                    }
+                ) {
+                    Text("Anuluj")
+                }
+            },
+            containerColor = FluentBackgroundDark,
+            titleContentColor = Color.White,
+            textContentColor = Color.White
+        )
+    }
+
 }

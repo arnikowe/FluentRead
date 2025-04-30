@@ -201,7 +201,11 @@ fun CurrentReadingBooks(navController: NavController, userViewModel: UserViewMod
                 )
             }
             books.isEmpty() -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Text(
                         text = "Nie masz żadnych obecnie czytanych książek.",
                         color = FluentSecondaryDark

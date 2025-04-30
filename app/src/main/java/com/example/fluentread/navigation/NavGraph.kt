@@ -183,6 +183,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             LibraryScreen(navController = navController, userViewModel = userViewModel)
         }
 
+        composable("chat_library") {
+            ChatLibraryScreen(userViewModel = userViewModel, navController = navController)
+        }
 
     }
 }

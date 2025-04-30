@@ -884,5 +884,35 @@ open class UserViewModel : ViewModel() {
                 onResult(false, false)
             }
     }
+    fun shouldAllowChat(bookId: String, chapter: Int, onResult: (Boolean) -> Unit) {
+        val uid = userId ?: return onResult(false)
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("users").document(uid)
+            .collection("finishedBooks")
+            .document(bookId)
+            .get()
+            .addOnSuccessListener { finishedDoc ->
+                if (finishedDoc.exists()) {
+                    onResult(true)
+                    return@addOnSuccessListener
+                }
+
+                db.collection("users").document(uid)
+                    .collection("currentRead")
+                    .document(bookId)
+                    .get()
+                    .addOnSuccessListener { currentReadDoc ->
+                        val currentChapter = currentReadDoc.getLong("chapter")?.toInt()
+                        onResult(currentChapter == chapter)
+                    }
+                    .addOnFailureListener {
+                        onResult(false)
+                    }
+            }
+            .addOnFailureListener {
+                onResult(false)
+            }
+    }
 
 }

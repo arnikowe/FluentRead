@@ -20,8 +20,10 @@ import androidx.compose.ui.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.fluentread.R
 import com.example.fluentread.dateClass.Book
 import com.example.fluentread.ui.theme.*
 import com.example.fluentread.viewmodel.UserViewModel
@@ -128,12 +130,11 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(
                 onClick = { showFilterDialog = true },
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(30.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.FilterList,
-                    contentDescription = "Filtr",
-                    tint = Color.White
+                    painter = painterResource(id = R.drawable.ic_filter),
+                    contentDescription = "Filtr"
                 )
             }
         }

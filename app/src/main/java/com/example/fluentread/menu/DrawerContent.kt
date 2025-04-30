@@ -79,7 +79,7 @@ fun DrawerContent(onItemClick: (String) -> Unit, onLogout: () -> Unit) {
                 "Strona główna" to "main",
                 "Biblioteka" to "library",
                 "Fiszki" to "screen_flashcards?bookId=dummy&chapter=dummy",
-                "Czat" to "screen_chat?bookId=dummy&chapter=dummy"
+                "Czat" to "chat_library"
             )
 
             menuItems.forEach { (title, route) ->

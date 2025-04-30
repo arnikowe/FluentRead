@@ -78,6 +78,7 @@ dependencies {
     // Cloudinary / Coil
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation(libs.translate)
+    implementation(libs.generativeai)
 
     // Debug tools
     debugImplementation("androidx.compose.ui:ui-tooling")
