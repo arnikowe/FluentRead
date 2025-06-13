@@ -1,5 +1,6 @@
 package com.example.fluentread.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.fluentread.R
@@ -48,7 +52,6 @@ fun AnagramScreen(
     var correctCount by remember { mutableStateOf(0) }
     var wrongCount by remember { mutableStateOf(0) }
 
-    // Load flashcards
     LaunchedEffect(bookId, chapter) {
         val query = db.collection("users").document(uid)
             .collection("flashcards")
@@ -127,13 +130,78 @@ fun AnagramScreen(
             style = FluentTypography.bodyMedium,
             modifier = Modifier.align(Alignment.End)
         )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = currentTranslation,
+                style = FluentTypography.titleLarge,
+                color = FluentSecondaryDark
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    painter = painterResource(id = R.drawable.icon_goodanswer),
+                    contentDescription = "Dobra odpowiedź",
+                    tint = if (showResult && isCorrect) Color(0xFF85CE7F) else FluentBackgroundDark,
+                    modifier = Modifier.size(32.dp)
+                )
+                Icon(
+                    painter = painterResource(id = R.drawable.icon_badanswer),
+                    contentDescription = "Zła odpowiedź",
+                    tint = if (showResult && !isCorrect) Color(0xFFD56767) else FluentBackgroundDark,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+        DividerLine()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = buildAnnotatedString {
+                    append("Twoje słowo: ")
+
+                    withStyle(
+                        style = SpanStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = FluentTypography.bodyLarge.fontSize * 1.1f
+                        )
+                    ) {
+                        append(userGuess)
+                    }
+                },
+                color = FluentSecondaryDark,
+                style = FluentTypography.bodyLarge
+            )
+
+
+            IconButton(
+                onClick = {
+                    val lastIndex = selectedIndices.lastOrNull() ?: return@IconButton
+                    selectedIndices = selectedIndices - lastIndex
+                },
+                modifier = Modifier.size(36.dp),
+                enabled = userGuess.isNotEmpty()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Undo,
+                    contentDescription = "Cofnij",
+                    tint = if (userGuess.isNotEmpty()) FluentSecondaryDark else Color.Transparent
+                )
+            }
+        }
 
         Text(
-            text = currentTranslation,
-            style = FluentTypography.titleLarge,
-            color = FluentSecondaryDark
+            text = if (showResult && !isCorrect) "Poprawna odpowiedź: $currentWord" else "Poprawna odpowiedź:",
+            color = if (showResult && !isCorrect) Color.LightGray else Color.Transparent,
+            style = FluentTypography.bodySmall
         )
 
+        Spacer(modifier = Modifier.height(8.dp))
         FlowRow(
             mainAxisSpacing = 8.dp,
             crossAxisSpacing = 8.dp,
@@ -145,97 +213,58 @@ fun AnagramScreen(
                     onClick = { if (!isSelected) selectedIndices = selectedIndices + index },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isSelected) Color.LightGray else FluentBackgroundDark
-                    )
+                    ),
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(letter.toString(), fontWeight = FontWeight.Bold, color = FluentSecondaryDark)
                 }
             }
         }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Twoje słowo: $userGuess",
-                color = FluentSecondaryDark,
-                style = FluentTypography.bodyLarge
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (userGuess.isNotEmpty()) {
-                    IconButton(onClick = {
-                        val lastIndex = selectedIndices.lastOrNull() ?: return@IconButton
-                        selectedIndices = selectedIndices - lastIndex
-                    },
-                        modifier = Modifier.size(36.dp) )
-                    {
-                        Icon(imageVector = Icons.Default.Undo, contentDescription = "Cofnij", tint = FluentBackgroundDark)
-                    }
-                }
-
-                if (showResult) {
-                    Icon(
-                        painter = painterResource(id = if (isCorrect) R.drawable.ic_goodanswer else R.drawable.ic_badanswer),
-                        contentDescription = null,
-                        tint = if (isCorrect) Color(0xFF85CE7F)  else Color(0xFFD56767),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-        }
-
-        if (showResult && !isCorrect) {
-            Text(
-                text = "Poprawna odpowiedź: $currentWord",
-                color = Color.LightGray,
-                style = FluentTypography.bodySmall
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .fillMaxSize()
+                .padding(8.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
 
-            Button(
-                onClick = {
-                    isCorrect = userGuess.equals(currentWord, ignoreCase = true)
-                    if (isCorrect) correctCount++ else wrongCount++
-                    showResult = true
-                    pendingAutoAdvance = true
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = FluentSecondaryDark),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.icon_check),
-                    contentDescription = "Sprawdź"
-                )
-            }
+            Spacer(modifier = Modifier.weight(1f))
 
-            Button(
-                onClick = {
-                    isCorrect = false
-                    wrongCount++
-                    showResult = true
-                    pendingAutoAdvance = true
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = FluentSecondaryDark),
-                shape = RoundedCornerShape(4.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.icon_skip),
-                    contentDescription = "Pomiń"
-                )
+                Button(
+                    onClick = {
+                        isCorrect = false
+                        wrongCount++
+                        showResult = true
+                        pendingAutoAdvance = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, FluentBackgroundDark)
+                ) {
+                    Text("Pomiń", fontWeight = FontWeight.Bold, color = FluentBackgroundDark)
+                }
+
+                Button(
+                    onClick = {
+                        isCorrect = userGuess.equals(currentWord, ignoreCase = true)
+                        if (isCorrect) correctCount++ else wrongCount++
+                        showResult = true
+                        pendingAutoAdvance = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = FluentSecondaryDark),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text("Sprawdź", fontWeight = FontWeight.Bold, color = FluentBackgroundDark)
+                }
             }
         }
+
     }
 }

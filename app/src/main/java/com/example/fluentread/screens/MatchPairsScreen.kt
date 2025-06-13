@@ -1,5 +1,7 @@
 package com.example.fluentread.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,6 +19,7 @@ import com.example.fluentread.ui.theme.FluentSurfaceDark
 import com.example.fluentread.ui.theme.FluentTypography
 import com.example.fluentread.viewmodel.UserViewModel
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 
 @Composable
@@ -32,8 +35,21 @@ fun MatchPairsScreen(
     var pairs by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var shuffledWords by remember { mutableStateOf<List<String>>(emptyList()) }
     var shuffledTranslations by remember { mutableStateOf<List<String>>(emptyList()) }
-    var selectedWord by remember { mutableStateOf<String?>(null) }
+    var selectedItem by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var matchedPairs by remember { mutableStateOf<Set<Pair<String, String>>>(emptySet()) }
+    var incorrectMatchItem by remember { mutableStateOf<String?>(null) }
+    var incorrectWordMatchItem by remember { mutableStateOf<String?>(null) }
+
+    val shakeTransition = rememberInfiniteTransition(label = "shakeTransition")
+    val shakeOffset by shakeTransition.animateFloat(
+        initialValue = -6f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(50, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shake"
+    )
 
     LaunchedEffect(bookId, chapter) {
         val query = db.collection("users").document(uid)
@@ -59,7 +75,7 @@ fun MatchPairsScreen(
         pairs = rawPairs
         shuffledWords = rawPairs.map { it.first }.shuffled()
         shuffledTranslations = rawPairs.map { it.second }.shuffled()
-        selectedWord = null
+        selectedItem = null
         matchedPairs = emptySet()
     }
 
@@ -107,32 +123,63 @@ fun MatchPairsScreen(
             ) {
                 shuffledWords.forEach { word ->
                     val isMatched = matchedPairs.any { it.first == word }
-                    val isSelected = selectedWord == word
-                    val backgroundColor = when {
-                        isMatched -> Color.Gray
-                        isSelected -> FluentSecondaryDark
-                        else -> FluentBackgroundDark
-                    }
-                    val textColor = when {
-                        isMatched -> Color.LightGray
-                        isSelected -> FluentBackgroundDark
-                        else -> Color.White
+                    val isSelected = selectedItem?.first == word && selectedItem?.second == true
+                    val isShaking = incorrectWordMatchItem == word
+
+                    val backgroundColor by animateColorAsState(
+                        targetValue = when {
+                            isMatched -> Color.Gray
+                            isSelected -> FluentSecondaryDark
+                            isShaking -> Color(0xFFD56767)
+                            else -> FluentBackgroundDark
+                        },
+                        animationSpec = tween(durationMillis = 300),
+                        label = "colorAnimWord"
+                    )
+
+                    LaunchedEffect(isShaking) {
+                        if (isShaking) {
+                            delay(300)
+                            incorrectWordMatchItem = null
+                        }
                     }
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(boxHeight)
+                            .offset(x = if (isShaking) shakeOffset.dp else 0.dp)
                             .background(backgroundColor, shape = RoundedCornerShape(4.dp))
-                            .clickable(enabled = !isMatched) { selectedWord = word }
+                            .clickable(enabled = !isMatched) {
+                                val selected = selectedItem
+                                if (selected == null) {
+                                    selectedItem = word to true
+                                } else {
+                                    val (text, isWord) = selected
+                                    val pair = if (isWord) Pair(text, word) else Pair(word, text)
+                                    if (pairs.contains(pair)) {
+                                        matchedPairs = matchedPairs + pair
+                                    } else {
+                                        incorrectMatchItem = if (isWord) word else text
+                                        incorrectWordMatchItem = if (isWord) text else word
+                                    }
+                                    selectedItem = null
+                                }
+                            }
                             .padding(horizontal = 12.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        Text(text = word, color = textColor)
+                        Text(
+                            text = word,
+                            color = when {
+                                isMatched -> Color.LightGray
+                                isSelected -> FluentBackgroundDark
+                                else -> Color.White
+                            }
+                        )
                     }
                 }
             }
-
 
             Spacer(modifier = Modifier.width(16.dp))
 
@@ -142,28 +189,59 @@ fun MatchPairsScreen(
             ) {
                 shuffledTranslations.forEach { translation ->
                     val isMatched = matchedPairs.any { it.second == translation }
-                    val backgroundColor = if (isMatched) Color.Gray else FluentBackgroundDark
-                    val textColor = if (isMatched) Color.LightGray else Color.White
+                    val isSelected = selectedItem?.first == translation && selectedItem?.second == false
+                    val isShaking = incorrectMatchItem == translation
+
+                    val backgroundColor by animateColorAsState(
+                        targetValue = when {
+                            isMatched -> Color.Gray
+                            isShaking -> Color(0xFFD56767)
+                            isSelected -> FluentSecondaryDark
+                            else -> FluentBackgroundDark
+                        },
+                        animationSpec = tween(durationMillis = 300),
+                        label = "colorAnimTrans"
+                    )
+
+                    LaunchedEffect(isShaking) {
+                        if (isShaking) {
+                            delay(300)
+                            incorrectMatchItem = null
+                        }
+                    }
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(boxHeight)
+                            .offset(x = if (isShaking) shakeOffset.dp else 0.dp)
                             .background(backgroundColor, shape = RoundedCornerShape(4.dp))
-                            .clickable(enabled = !isMatched && selectedWord != null) {
-                                val word = selectedWord
-                                if (word != null && pairs.contains(Pair(word, translation))) {
-                                    matchedPairs = matchedPairs + Pair(word, translation)
+                            .clickable(enabled = !isMatched) {
+                                val selected = selectedItem
+                                if (selected == null) {
+                                    selectedItem = translation to false
+                                } else {
+                                    val (text, isWord) = selected
+                                    val pair = if (isWord) Pair(text, translation) else Pair(translation, text)
+                                    if (pairs.contains(pair)) {
+                                        matchedPairs = matchedPairs + pair
+                                    } else {
+                                        incorrectMatchItem = if (isWord) translation else text
+                                        incorrectWordMatchItem = if (isWord) text else translation
+                                    }
+                                    selectedItem = null
                                 }
-                                selectedWord = null
                             }
+
                             .padding(horizontal = 12.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        Text(translation, color = textColor)
+                        Text(
+                            text = translation,
+                            color = if (isMatched) Color.LightGray else Color.White
+                        )
                     }
                 }
-
             }
         }
     }

@@ -44,6 +44,7 @@ fun FlashcardRepeatScreen(
     val userId = userViewModel.userId ?: return
 
     LaunchedEffect(Unit) {
+        userViewModel.setFlashcardLanguage("EN")
         userViewModel.resetFlashcards(flashcards)
         val initialFlashcards = if (userViewModel.shuffleFlashcards) {
             flashcards.shuffled()
@@ -107,335 +108,382 @@ fun FlashcardRepeatScreen(
     val offsetX = remember { mutableFloatStateOf(0f) }
     val coroutineScope = rememberCoroutineScope()
 
-    val navigatedToSummary = remember { mutableStateOf(false) }
 
-    if (userViewModel.sessionFinished ) {
-        LaunchedEffect(Unit) {
+    val hasNavigated = remember { mutableStateOf(false) }
+
+    LaunchedEffect(userViewModel.sessionFinished) {
+        if (userViewModel.sessionFinished && !hasNavigated.value) {
+            hasNavigated.value = true
+
             navController.navigate(
                 "summary_screen_flashcards?bookTitle=${userViewModel.bookTitle}" +
                         "&chapter=${userViewModel.currentChapter}" +
                         "&correct=${userViewModel.knowCount}" +
                         "&wrong=${userViewModel.dontKnowCount}"
-            )
+            ) {
+                popUpTo("repeat_mode/${userViewModel.bookTitle}?chapter=${userViewModel.currentChapter}") {
+                    inclusive = true
+                }
+                launchSingleTop = true
+            }
         }
-        return
     }
 
 
+
+
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) {
-                focusManager.clearFocus()
-            }
-    ) {
-        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF6E4A36))
-                .padding(top = 65.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    focusManager.clearFocus()
+                }
         ) {
-            Spacer(modifier = Modifier.height(10.dp))
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                    .fillMaxSize()
+                    .background(Color(0xFF6E4A36))
+                    .padding(top = 65.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
             ) {
-                LinearProgressIndicator(
-                    progress = currentIndex / totalCards.toFloat(),
-                    color = FluentBackgroundDark,
-                    trackColor =FluentOnPrimaryDark,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "$currentIndex / $totalCards",
-                    color = FluentOnPrimaryDark,
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(2.dp, Color(0xFFD56767)),
-                    color = Color.Transparent,
-                    modifier = Modifier.padding(4.dp)
-                ) {
-                    Text(
-                        text = " ${userViewModel.dontKnowCount}",
-                        color = Color(0xFFD56767),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(2.dp, Color(0xFF85CE7F)),
-                    color = Color.Transparent,
-                    modifier = Modifier.padding(4.dp)
-                ) {
-                    Text(
-                        text = " ${userViewModel.knowCount}",
-                        color = Color(0xFF85CE7F),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .offset { IntOffset(offsetX.floatValue.roundToInt(), 0) }
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                val lastIndex = flashcards.lastIndex
-                                Log.d(
-                                    "FlashcardSwipe",
-                                    "Flashcard count=${flashcards.size}, lastIndex=$lastIndex, currentIndex=${userViewModel.flashcardIndex}"
-                                )
-
-                                when {
-                                    offsetX.floatValue > 200 -> {
-                                        Log.d("FlashcardSwipe", "Swipe RIGHT (know)")
-                                        userViewModel.incrementKnow()
-                                        userViewModel.goToNextFlashcard(lastIndex)
-                                    }
-
-                                    offsetX.floatValue < -200 -> {
-                                        Log.d("FlashcardSwipe", "Swipe LEFT (don't know)")
-                                        userViewModel.incrementDontKnow()
-                                        userViewModel.goToNextFlashcard(lastIndex)
-                                    }
-
-                                    else -> {
-                                        Log.d(
-                                            "FlashcardSwipe",
-                                            "No significant swipe: offset=${offsetX.floatValue}"
-                                        )
-                                    }
-                                }
-
-                                coroutineScope.launch {
-                                    kotlinx.coroutines.delay(150)
-                                    offsetX.floatValue = 0f
-                                }
-                            },
-                            onHorizontalDrag = { change, dragAmount ->
-                                offsetX.value += dragAmount
-                                change.consume()
-                            }
-                        )
-                    }
-                    .clickable { userViewModel.toggleTranslation() },
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(6.dp)
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Text(
-                        text = when {
-                            currentCard == null -> ""
-                            showTranslation xor (languageMode == "PL") -> currentCard.getString("translation")
-                                ?: ""
-
-                            else -> currentCard.getString("word") ?: ""
-                        },
-                        modifier = Modifier.align(Alignment.Center),
-                        fontSize = 30.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4B2E2E)
-                    )
-                    IconButton(
-                        onClick = {
-                            val id = currentCard?.id ?: return@IconButton
-                            val ref = FirebaseFirestore.getInstance().collection("users")
-                                .document(userId).collection("flashcards").document("favorite")
-
-                            val isFavorite = userViewModel.favoriteIds.value.contains(id)
-                            val update = if (isFavorite) {
-                                Log.d("Favorites", "Usuwam $id z ulubionych")
-                                FieldValue.arrayRemove(id)
-                            } else {
-                                Log.d("Favorites", "Dodaję $id do ulubionych")
-                                FieldValue.arrayUnion(id)
-                            }
-
-                            ref.update(mapOf("ids" to update))
-                                .addOnSuccessListener {
-                                    val updated = userViewModel.favoriteIds.value.toMutableSet()
-                                    if (isFavorite) updated.remove(id) else updated.add(id)
-                                    userViewModel.favoriteIds.value = updated
-                                }
-                                .addOnFailureListener {
-                                    Log.e("Favorites", "Błąd aktualizacji: ${it.localizedMessage}")
-                                }
-
-                        },
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    ) {
-                        Icon(
-                            imageVector = if (userViewModel.favoriteIds.value.contains(currentCard?.id))
-                                Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = "Ulubione",
-                            tint = FluentSecondaryDark,
-                            modifier = Modifier.size(80.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = FluentSecondaryDark),
-                elevation = CardDefaults.cardElevation()
-            ) {
+                Spacer(modifier = Modifier.height(10.dp))
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(FluentSecondaryDark)
-                        .padding(12.dp)
+                        .padding(bottom = 8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    LinearProgressIndicator(
+                        progress = currentIndex / totalCards.toFloat(),
+                        color = FluentBackgroundDark,
+                        trackColor = FluentOnPrimaryDark,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "$currentIndex / $totalCards",
+                        color = FluentOnPrimaryDark,
+                        fontSize = 14.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(2.dp, Color(0xFFD56767)),
+                        color = Color.Transparent,
+                        modifier = Modifier.padding(4.dp)
                     ) {
                         Text(
-                            "Notatka",
-                            fontWeight = FontWeight.Bold,
-                            color = FluentBackgroundDark,
-                            fontSize = 18.sp
+                            text = " ${userViewModel.dontKnowCount}",
+                            color = Color(0xFFD56767),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            fontWeight = FontWeight.Bold
                         )
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_note),
-                            contentDescription = "Notatka",
-                            tint = FluentBackgroundDark,
-                            modifier = Modifier.size(20.dp)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(2.dp, Color(0xFF85CE7F)),
+                        color = Color.Transparent,
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        Text(
+                            text = " ${userViewModel.knowCount}",
+                            color = Color(0xFF85CE7F),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .offset { IntOffset(offsetX.floatValue.roundToInt(), 0) }
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val lastIndex = flashcards.lastIndex
+                                    Log.d(
+                                        "FlashcardSwipe",
+                                        "Flashcard count=${flashcards.size}, lastIndex=$lastIndex, currentIndex=${userViewModel.flashcardIndex}"
+                                    )
+
+                                    when {
+                                        offsetX.floatValue > 200 -> {
+                                            Log.d("FlashcardSwipe", "Swipe RIGHT (know)")
+                                            userViewModel.incrementKnow()
+                                            userViewModel.goToNextFlashcard(lastIndex)
+                                        }
+
+                                        offsetX.floatValue < -200 -> {
+                                            Log.d("FlashcardSwipe", "Swipe LEFT (don't know)")
+                                            userViewModel.incrementDontKnow()
+                                            userViewModel.goToNextFlashcard(lastIndex)
+                                        }
+
+                                        else -> {
+                                            Log.d(
+                                                "FlashcardSwipe",
+                                                "No significant swipe: offset=${offsetX.floatValue}"
+                                            )
+                                        }
+                                    }
+
+                                    coroutineScope.launch {
+                                        kotlinx.coroutines.delay(150)
+                                        offsetX.floatValue = 0f
+                                    }
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    offsetX.value += dragAmount
+                                    change.consume()
+                                }
+                            )
+                        }
+                        .clickable { userViewModel.toggleTranslation() },
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(6.dp)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Text(
+                            text = when {
+                                currentCard == null -> ""
+                                showTranslation xor (languageMode == "PL") -> currentCard.getString(
+                                    "translation"
+                                )
+                                    ?: ""
+
+                                else -> currentCard.getString("word") ?: ""
+                            },
+                            modifier = Modifier.align(Alignment.Center),
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4B2E2E)
+                        )
+                        IconButton(
+                            onClick = {
+                                val id = currentCard?.id ?: return@IconButton
+                                val ref = FirebaseFirestore.getInstance().collection("users")
+                                    .document(userId).collection("flashcards").document("favorite")
+
+                                val isFavorite = userViewModel.favoriteIds.value.contains(id)
+                                val update = if (isFavorite) {
+                                    Log.d("Favorites", "Usuwam $id z ulubionych")
+                                    FieldValue.arrayRemove(id)
+                                } else {
+                                    Log.d("Favorites", "Dodaję $id do ulubionych")
+                                    FieldValue.arrayUnion(id)
+                                }
+
+                                ref.update(mapOf("ids" to update))
+                                    .addOnSuccessListener {
+                                        val updated = userViewModel.favoriteIds.value.toMutableSet()
+                                        if (isFavorite) updated.remove(id) else updated.add(id)
+                                        userViewModel.favoriteIds.value = updated
+                                    }
+                                    .addOnFailureListener {
+                                        Log.e(
+                                            "Favorites",
+                                            "Błąd aktualizacji: ${it.localizedMessage}"
+                                        )
+                                    }
+
+                            },
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        ) {
+                            Icon(
+                                imageVector = if (userViewModel.favoriteIds.value.contains(
+                                        currentCard?.id
+                                    )
+                                )
+                                    Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = "Ulubione",
+                                tint = FluentSecondaryDark,
+                                modifier = Modifier.size(80.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = FluentSecondaryDark),
+                    elevation = CardDefaults.cardElevation()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(FluentSecondaryDark)
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Notatka",
+                                fontWeight = FontWeight.Bold,
+                                color = FluentBackgroundDark,
+                                fontSize = 18.sp
+                            )
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_note),
+                                contentDescription = "Notatka",
+                                tint = FluentBackgroundDark,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        TextField(
+                            modifier = Modifier.focusRequester(focusRequester),
+                            value = note.value,
+                            onValueChange = {
+                                note.value = it
+                                currentCard?.id?.let { id ->
+                                    FirebaseFirestore.getInstance()
+                                        .collection("users").document(userId)
+                                        .collection("flashcards").document(id)
+                                        .update("note", it)
+                                }
+                            },
+                            colors = TextFieldDefaults.textFieldColors(
+                                containerColor = Color.Transparent,
+                                cursorColor = FluentBackgroundDark,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            textStyle = LocalTextStyle.current.copy(color = FluentBackgroundDark)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    TextField(
-                        modifier = Modifier.focusRequester(focusRequester),
-                        value = note.value,
-                        onValueChange = {
-                            note.value = it
-                            currentCard?.id?.let { id ->
-                                FirebaseFirestore.getInstance()
-                                    .collection("users").document(userId)
-                                    .collection("flashcards").document(id)
-                                    .update("note", it)
-                            }
-                        },
-                        colors = TextFieldDefaults.textFieldColors(
-                            containerColor = Color.Transparent,
-                            cursorColor = FluentBackgroundDark,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        textStyle = LocalTextStyle.current.copy(color = FluentBackgroundDark)
-                    )
                 }
+
+
+                Spacer(modifier = Modifier.height(24.dp))
 
             }
 
+            var selectedLanguage by remember { mutableStateOf(userViewModel.flashcardLanguageMode) }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            LaunchedEffect(showDialog) {
+                if (showDialog) {
+                    selectedLanguage = userViewModel.flashcardLanguageMode
+                }
+            }
 
-        }
-
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                confirmButton = {},
-                title = {
-                    Column {
-                        Text("Konfiguracja fiszki", fontWeight = FontWeight.Bold, color = FluentSecondaryDark)
-                        HorizontalDivider(thickness = 1.dp, color = FluentSecondaryDark)
-                    }
-                },
-                text = {
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
+            if (showDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDialog = false },
+                    confirmButton = {},
+                    title = {
+                        Column {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.TopEnd
+                            ) {
+                                IconButton(onClick = { userViewModel.toggleFlashcardSettingsDialog() }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Zamknij",
+                                        tint = FluentSecondaryDark
+                                    )
+                                }
+                            }
+                            Text(
+                                "Konfiguracja fiszki",
+                                fontWeight = FontWeight.Bold,
+                                color = FluentSecondaryDark
+                            )
+                            HorizontalDivider(thickness = 1.dp, color = FluentSecondaryDark)
+                        }
+                    },
+                    text = {
+                        Column {
                             val selectedColor = Color(0xFFF6EFC6)
                             val borderColor = Color(0xFFD4BC95)
                             val selectedTextColor = Color(0xFF4B2E2E)
 
-                            Button(
-                                onClick = { userViewModel.setFlashcardLanguage("EN") },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (languageMode == "EN") selectedColor else Color.Transparent
-                                ),
-                                border = BorderStroke(1.dp, borderColor),
-                                shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
-                                modifier = Modifier.weight(1f)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
                             ) {
-                                Text(
-                                    "angielski",
-                                    color = if (languageMode == "EN") selectedTextColor else borderColor
-                                )
+                                Button(
+                                    onClick = { selectedLanguage = "EN" },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (selectedLanguage == "EN") selectedColor else Color.Transparent
+                                    ),
+                                    border = BorderStroke(1.dp, borderColor),
+                                    shape = RoundedCornerShape(
+                                        topStart = 12.dp,
+                                        bottomStart = 12.dp
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        "angielski",
+                                        color = if (selectedLanguage == "EN") selectedTextColor else borderColor
+                                    )
+                                }
+
+                                Button(
+                                    onClick = { selectedLanguage = "PL" },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (selectedLanguage == "PL") selectedColor else Color.Transparent
+                                    ),
+                                    border = BorderStroke(1.dp, borderColor),
+                                    shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        "polski",
+                                        color = if (selectedLanguage == "PL") selectedTextColor else borderColor
+                                    )
+                                }
                             }
 
+                            Spacer(modifier = Modifier.height(24.dp))
+
                             Button(
-                                onClick = { userViewModel.setFlashcardLanguage("PL") },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (languageMode == "PL") selectedColor else Color.Transparent
-                                ),
-                                border = BorderStroke(1.dp, borderColor),
-                                shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
-                                modifier = Modifier.weight(1f)
+                                onClick = { userViewModel.resetFlashcards(userViewModel.currentFlashcards) },
+                                colors = ButtonDefaults.buttonColors(containerColor = FluentBackgroundDark),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    "polski",
-                                    color = if (languageMode == "PL") selectedTextColor else borderColor
-                                )
+                                Text("Zresetuj fiszki", color = FluentSecondaryDark)
                             }
-                        }
 
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Button(
-                            onClick = { userViewModel.resetFlashcards(userViewModel.currentFlashcards) },
-                            colors = ButtonDefaults.buttonColors(containerColor =  FluentBackgroundDark),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Zresetuj fiszki", color = FluentSecondaryDark)
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = { userViewModel.toggleFlashcardSettingsDialog() },
-                            colors = ButtonDefaults.buttonColors(containerColor =  FluentBackgroundDark),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Zamknij", color = FluentSecondaryDark)
+                            Button(
+                                onClick = {
+                                    userViewModel.setFlashcardLanguage(selectedLanguage)
+                                    userViewModel.toggleFlashcardSettingsDialog()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = FluentBackgroundDark),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Zastosuj", color = FluentSecondaryDark)
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     }
-}
 

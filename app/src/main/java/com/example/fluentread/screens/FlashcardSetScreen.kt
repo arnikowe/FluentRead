@@ -103,6 +103,7 @@ fun FlashcardSetScreen(
                         } else {
                             baseRoute
                         }
+                        userViewModel.resetFlashcardSession()
                         navController.navigate(route)
                     }
                     .align(Alignment.Center)

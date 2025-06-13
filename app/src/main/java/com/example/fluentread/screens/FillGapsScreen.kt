@@ -1,5 +1,6 @@
 package com.example.fluentread.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -133,16 +136,9 @@ fun FillGapsScreen(
                 modifier = Modifier.align(Alignment.End)
             )
 
-            if (contextSentence.isNotBlank()) {
-                Text(
-                    text = "Kontekst: $contextSentence",
-                    style = FluentTypography.bodySmall,
-                    color = Color.LightGray
-                )
-            }
-
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -150,9 +146,19 @@ fun FillGapsScreen(
                     text = translation,
                     style = FluentTypography.titleLarge,
                     color = FluentSecondaryDark,
-                    fontSize = 30.sp
+                    fontSize = 28.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
+                    softWrap = true,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 36.dp, max = 72.dp)
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
                     Icon(
                         painter = painterResource(id = R.drawable.icon_goodanswer),
                         contentDescription = "Dobra odpowiedź",
@@ -167,73 +173,79 @@ fun FillGapsScreen(
                     )
                 }
             }
-
-            if (showFeedback && !isCorrect) {
+            DividerLine()
+            Text(
+                text = if (showFeedback && !isCorrect) "Poprawna odpowiedź: $word" else "Poprawna odpowiedź:",
+                color = if (showFeedback && !isCorrect) Color.LightGray else Color.Transparent,
+                style = FluentTypography.bodySmall
+            )
+            if (contextSentence.isNotBlank()) {
                 Text(
-                    text = "Poprawna odpowiedź: $word",
-                    color = Color.LightGray,
+                    text = "Kontekst: $contextSentence",
                     style = FluentTypography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp)
+                    color = Color.LightGray
                 )
             }
-
-
-            OutlinedTextField(
-                value = userAnswer,
-                onValueChange = { userAnswer = it },
-                label = { Text("Wpisz brakujące słowo", color = Color.White) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = FluentSecondaryDark,
-                    unfocusedBorderColor = Color.Gray,
-                    focusedLabelColor = Color.White,
-                    unfocusedLabelColor = Color.White,
-                    cursorColor = FluentSecondaryDark,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                )
-            )
-
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxSize()
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Button(
-                    onClick = {
-                        val correct = userAnswer.trim().equals(word, ignoreCase = true)
-                        isCorrect = correct
-                        showFeedback = true
-                        if (correct) correctCount++ else wrongCount++
-                        pendingAutoAdvance = true
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = FluentSecondaryDark),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.icon_check),
-                        contentDescription = "Sprawdź"
-                    )
-                }
 
-                Button(
-                    onClick = {
-                        wrongCount++
-                        showFeedback = true
-                        isCorrect = false
-                        pendingAutoAdvance = true
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = FluentSecondaryDark),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.icon_skip),
-                        contentDescription = "Pomiń"
+                Spacer(modifier = Modifier.weight(1f))
+                OutlinedTextField(
+                    value = userAnswer,
+                    onValueChange = { userAnswer = it },
+                    label = { Text("Wpisz brakujące słowo", color = Color.White) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = FluentSecondaryDark,
+                        unfocusedBorderColor = FluentSecondaryDark,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.LightGray,
+                        cursorColor = FluentSecondaryDark,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
                     )
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            wrongCount++
+                            showFeedback = true
+                            isCorrect = false
+                            pendingAutoAdvance = true
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, FluentBackgroundDark)
+                    ) {
+                        Text("Pomiń", fontWeight = FontWeight.Bold, color = FluentBackgroundDark)
+                    }
+                    Button(
+                        onClick = {
+                            val correct = userAnswer.trim().equals(word, ignoreCase = true)
+                            isCorrect = correct
+                            showFeedback = true
+                            if (correct) correctCount++ else wrongCount++
+                            pendingAutoAdvance = true
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = FluentSecondaryDark),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text("Sprawdź", fontWeight = FontWeight.Bold, color = FluentBackgroundDark)
+                    }
+
                 }
             }
         }

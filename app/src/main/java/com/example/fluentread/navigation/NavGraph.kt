@@ -79,6 +79,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
 
         composable(
+
             route = "repeat_mode/{bookId}?chapter={chapter}",
             arguments = listOf(
                 navArgument("bookId") { type = NavType.StringType },
@@ -180,7 +181,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                 },
                 onBack = {
                     userViewModel. resetFlashcardSession()
-                    navController.popBackStack("flashcard_set/$bookTitle&chapter=$chapter", false)
+                    navController.popBackStack("screen_flashcard_set?bookId=$bookTitle&chapter=$chapter", false)
                 }
             )
         }
