@@ -11,9 +11,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -21,6 +19,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.fluentread.R
@@ -39,6 +38,7 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
     var searchQuery by remember { mutableStateOf("") }
     var showFilterDialog by remember { mutableStateOf(false) }
     var selectedGenres by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedLevels by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     var allBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -64,6 +64,13 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
         "science fiction" to "Science fiction",
         "thriller" to "Thriller"
     )
+
+    val levelTranslations = mapOf(
+        "easy" to "Początkujący",
+        "medium" to "Średniozaawansowany",
+        "hard" to "Zaawansowany"
+    )
+
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentBooks()
     }
@@ -140,14 +147,17 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
             }
         }
 
-        if (selectedGenres.isNotEmpty()) {
+        val allTags = selectedGenres.mapNotNull { genreTranslations[it] } +
+                selectedLevels.mapNotNull { levelTranslations[it] }
+
+        if (allTags.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             FlowRow(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                selectedGenres.forEach { genre ->
+                allTags.forEach { tag ->
                     Box(
                         modifier = Modifier
                             .background(FluentSecondaryDark, shape = MaterialTheme.shapes.medium)
@@ -157,7 +167,7 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = genreTranslations[genre] ?: genre,
+                                text = tag,
                                 color = FluentBackgroundDark
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -168,7 +178,8 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
                                 modifier = Modifier
                                     .size(16.dp)
                                     .clickable {
-                                        selectedGenres = selectedGenres - genre
+                                        selectedGenres = selectedGenres - genreTranslations.entries.find { it.value == tag }?.key.orEmpty()
+                                        selectedLevels = selectedLevels - levelTranslations.entries.find { it.value == tag }?.key.orEmpty()
                                     }
                             )
                         }
@@ -178,7 +189,7 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        val isFiltering = searchQuery.isNotBlank() || selectedGenres.isNotEmpty()
+        val isFiltering = searchQuery.isNotBlank() || selectedGenres.isNotEmpty() || selectedLevels.isNotEmpty()
 
         val filteredBooks = allBooks.filter { book ->
             val matchesSearch = searchQuery.isBlank() ||
@@ -186,7 +197,9 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
                     book.author.contains(searchQuery, ignoreCase = true)
             val matchesGenre = selectedGenres.isEmpty() ||
                     book.genre.any { it in selectedGenres }
-            matchesSearch && matchesGenre
+            val matchesLevel = selectedLevels.isEmpty() ||
+                    selectedLevels.contains(book.level)
+            matchesSearch && matchesGenre && matchesLevel
         }
 
         if (isFiltering) {
@@ -235,10 +248,13 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
     if (showFilterDialog) {
         FilterDialog(
             selectedGenres = selectedGenres,
+            selectedLevels = selectedLevels,
             genreTranslations = genreTranslations,
+            levelTranslations = levelTranslations,
             onDismiss = { showFilterDialog = false },
-            onApply = {
-                selectedGenres = it
+            onApply = { genres, levels ->
+                selectedGenres = genres
+                selectedLevels = levels
                 showFilterDialog = false
             }
         )
@@ -304,75 +320,6 @@ fun BooksByLevel(level: String, navController: NavController, books: List<Book>)
     }
 }
 @Composable
-fun FilterDialog(
-    selectedGenres: Set<String>,
-    genreTranslations: Map<String, String>,
-    onDismiss: () -> Unit,
-    onApply: (Set<String>) -> Unit
-) {
-    var tempSelectedGenres by remember { mutableStateOf(selectedGenres) }
-
-    AlertDialog(
-        onDismissRequest = { onDismiss() },
-        confirmButton = {
-            TextButton(onClick = { onApply(tempSelectedGenres) }) {
-                Text("Zastosuj", color = FluentSecondaryDark)
-            }
-        },
-        title = {
-            Text(
-                text = "Filtruj po gatunku",
-                color = FluentSecondaryDark
-            )
-        },
-        text = {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { tempSelectedGenres = emptySet() }
-                            .padding(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = tempSelectedGenres.isEmpty(),
-                            onCheckedChange = { tempSelectedGenres = emptySet() }
-                        )
-                        Text(text = "Wszystkie")
-                    }
-                }
-                items(genreTranslations.toList().sortedBy { it.second }) { (english, polish) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                tempSelectedGenres = tempSelectedGenres.toMutableSet().apply {
-                                    if (contains(english)) remove(english) else add(english)
-                                }
-                            }
-                            .padding(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = tempSelectedGenres.contains(english),
-                            onCheckedChange = {
-                                tempSelectedGenres = tempSelectedGenres.toMutableSet().apply {
-                                    if (contains(english)) remove(english) else add(english)
-                                }
-                            }
-                        )
-                        Text(text = polish)
-                    }
-                }
-            }
-        }
-    )
-}
-
-@Composable
 fun DividerLine() {
     Box(
         modifier = Modifier
@@ -381,3 +328,124 @@ fun DividerLine() {
             .background(FluentSecondaryDark)
     )
 }
+@Composable
+fun FilterDialog(
+    selectedGenres: Set<String>,
+    selectedLevels: Set<String>,
+    genreTranslations: Map<String, String>,
+    levelTranslations: Map<String, String>,
+    onDismiss: () -> Unit,
+    onApply: (Set<String>, Set<String>) -> Unit
+) {
+    var tempSelectedGenres by remember { mutableStateOf(selectedGenres) }
+    var tempSelectedLevels by remember { mutableStateOf(selectedLevels) }
+    var expandGenres by remember { mutableStateOf(false) }
+    var expandLevels by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onApply(tempSelectedGenres, tempSelectedLevels) }) {
+                Text("Zastosuj", color = FluentSecondaryDark)
+            }
+        },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Filtry", color = FluentSecondaryDark)
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Zamknij", tint = FluentSecondaryDark)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expandLevels = !expandLevels },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Filtruj po poziomie", fontWeight = FontWeight.Bold, color = FluentSecondaryDark)
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = if (expandLevels) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Rozwiń/Zwiń",
+                        tint = FluentSecondaryDark
+                    )
+                }
+
+                if (expandLevels) {
+                    levelTranslations.forEach { (key, label) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    tempSelectedLevels = tempSelectedLevels.toMutableSet().apply {
+                                        if (contains(key)) remove(key) else add(key)
+                                    }
+                                }
+                                .padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+                        ) {
+                            Checkbox(
+                                checked = tempSelectedLevels.contains(key),
+                                onCheckedChange = null
+                            )
+                            Text(label)
+                        }
+                    }
+                }
+
+                Divider(modifier = Modifier.padding(vertical = 4.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expandGenres = !expandGenres },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Filtruj po gatunku", fontWeight = FontWeight.Bold, color = FluentSecondaryDark)
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = if (expandGenres) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Rozwiń/Zwiń",
+                        tint = FluentSecondaryDark
+                    )
+                }
+
+                if (expandGenres) {
+                    Box(modifier = Modifier.heightIn(max = 200.dp)) {
+                        LazyColumn {
+                            items(genreTranslations.toList().sortedBy { it.second }) { (key, label) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            tempSelectedGenres = tempSelectedGenres.toMutableSet().apply {
+                                                if (contains(key)) remove(key) else add(key)
+                                            }
+                                        }
+                                        .padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+                                ) {
+                                    Checkbox(
+                                        checked = tempSelectedGenres.contains(key),
+                                        onCheckedChange = null
+                                    )
+                                    Text(label)
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+    )
+}
+

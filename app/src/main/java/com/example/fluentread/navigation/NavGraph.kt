@@ -107,6 +107,11 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                             db.collection("users").document(userId)
                                 .collection("flashcards").document(it).get().await().takeIf { it.exists() }
                         }
+                    } else if (bookId == "all_flashcards") {
+                        val allDocs = db.collection("users").document(userId)
+                            .collection("flashcards")
+                            .get().await().documents
+                        flashcardsState.value = allDocs
                     } else {
                         var query = db.collection("users").document(userId)
                             .collection("flashcards")
@@ -119,6 +124,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                         val snap = query.get().await()
                         flashcardsState.value = snap.documents
                     }
+
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {

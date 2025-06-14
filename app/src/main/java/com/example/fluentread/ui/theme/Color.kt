@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 val FluentPrimary = Color(0xFF8C715C)
 val FluentSecondary = Color(0xFFEDE6B1)
 val FluentBackground = Color(0xFFF0EBC6)
+val Background = Color(0xFF896D5F)
 val FluentSurface = Color.White
 val FluentOnPrimary = Color.White
 val FluentOnSecondary = Color.Black

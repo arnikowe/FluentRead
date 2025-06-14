@@ -1,6 +1,7 @@
 package com.example.fluentread.screens
 
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
@@ -39,38 +41,50 @@ fun FlashcardSetScreen(
 
 
     LaunchedEffect(bookId, chapter) {
-        if (bookId == "favorites") {
-            val favoriteSnap = db.collection("users").document(userId)
-                .collection("flashcards").document("favorite").get().await()
-            val favoriteIds = favoriteSnap.get("ids") as? List<String> ?: emptyList()
+        when (bookId) {
+            "favorites" -> {
+                val favoriteSnap = db.collection("users").document(userId)
+                    .collection("flashcards").document("favorite").get().await()
+                val favoriteIds = favoriteSnap.get("ids") as? List<String> ?: emptyList()
 
-            val favoriteDocs = mutableListOf<DocumentSnapshot>()
-            for (id in favoriteIds) {
-                val doc = db.collection("users").document(userId)
-                    .collection("flashcards").document(id).get().await()
-                if (doc.exists()) favoriteDocs.add(doc)
+                val favoriteDocs = favoriteIds.mapNotNull { id ->
+                    val doc = db.collection("users").document(userId)
+                        .collection("flashcards").document(id).get().await()
+                    if (doc.exists()) doc else null
+                }
+
+                flashcards = favoriteDocs
             }
 
-            flashcards = favoriteDocs
-        } else {
-            val query = db.collection("users").document(userId)
-                .collection("flashcards")
-                .whereEqualTo("bookId", bookId)
-
-            val finalQuery = if (chapter != null) {
-                query.whereEqualTo("chapter", chapter)
-            } else {
-                query
+            "all_flashcards" -> {
+                val allDocs = db.collection("users").document(userId)
+                    .collection("flashcards")
+                    .get().await().documents
+                    .filter { it.id != "favorite" }
+                flashcards = allDocs
             }
 
-            val flashcardSnap = finalQuery.get().await()
-            flashcards = flashcardSnap.documents
+            else -> {
+                val query = db.collection("users").document(userId)
+                    .collection("flashcards")
+                    .whereEqualTo("bookId", bookId)
+
+                val finalQuery = if (chapter != null) {
+                    query.whereEqualTo("chapter", chapter)
+                } else {
+                    query
+                }
+
+                val flashcardSnap = finalQuery.get().await()
+                flashcards = flashcardSnap.documents
+            }
         }
 
         val favoriteSnap = db.collection("users").document(userId)
             .collection("flashcards").document("favorite").get().await()
         favorites = (favoriteSnap.get("ids") as? List<String> ?: emptyList()).toSet()
     }
+
 
 
     val sortedFlashcards = when (sortType) {
@@ -81,9 +95,19 @@ fun FlashcardSetScreen(
 
     Column(modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFF6E4A36))
+        .background(Background)
         .padding(16.dp)) {
-        Spacer(modifier = Modifier.height(65.dp))
+        Spacer(modifier = Modifier.height(55.dp))
+        Text(
+                text = "Powtórz",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFEDE6B1)
+        )
+
+        HorizontalDivider(thickness = 1.dp, color =Color(0xFFEDE6B1))
+
+        Spacer(modifier = Modifier.height(8.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -115,15 +139,6 @@ fun FlashcardSetScreen(
                     tint = Color.Unspecified
                 )
 
-                Text(
-                    text = "Powtórz",
-                    color = FluentSurfaceDark,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .offset(y = (-40).dp, x = 19.dp)
-                )
             }
 
         }
@@ -138,17 +153,20 @@ fun FlashcardSetScreen(
                 text = "Fiszki",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = Color(0xFFEDE6B1),
                 modifier = Modifier.weight(1f)
             )
             IconButton(onClick = { sortDialogVisible = true }) {
-                Icon(Icons.Default.FilterList, contentDescription = "Sort", tint = Color.White)
+                Icon(Icons.Default.FilterList, contentDescription = "Sort", tint = Color(0xFFEDE6B1))
             }
         }
 
-        HorizontalDivider(thickness = 1.dp, color = Color(0xFFD4BC95))
+        HorizontalDivider(thickness = 1.dp, color = Color(0xFFEDE6B1))
 
         Spacer(modifier = Modifier.height(8.dp))
+
+        var showDeleteDialog by remember { mutableStateOf(false) }
+        var cardToDelete by remember { mutableStateOf<DocumentSnapshot?>(null) }
 
         LazyColumn {
             items(sortedFlashcards) { doc ->
@@ -160,7 +178,15 @@ fun FlashcardSetScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 4.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    cardToDelete = doc
+                                    showDeleteDialog = true
+                                }
+                            )
+                        },
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Row(
@@ -197,7 +223,39 @@ fun FlashcardSetScreen(
                 }
             }
         }
+
+// Dialog poza LazyColumn
+        if (showDeleteDialog && cardToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("Chcesz usunąć słowo?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val docId = cardToDelete!!.id
+                        db.collection("users").document(userId)
+                            .collection("flashcards").document(docId)
+                            .delete()
+                            .addOnSuccessListener {
+                                flashcards = flashcards.filter { it.id != docId }
+                            }
+
+                        showDeleteDialog = false
+                    }) {
+                        Text("Usuń")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("Anuluj")
+                    }
+                }
+            )
+        }
+
     }
+
+
+
 
     if (sortDialogVisible) {
         AlertDialog(

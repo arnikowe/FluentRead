@@ -126,26 +126,32 @@ fun SummaryScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (wrongAnswers > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Surface(
-                modifier = uniformElementModifier,
-                color = Color(0xFFB5766F),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    modifier = uniformElementModifier,
+                    color = Color(0xFFB5766F),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(
-                        text = "$wrongAnswers złych odpowiedzi",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = FluentSecondaryDark,
-                        textAlign = TextAlign.Center
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "$wrongAnswers złych odpowiedzi",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = FluentSecondaryDark,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
+            else{
+                Spacer(modifier = Modifier.height(48.dp))
+            }
+
 
             Spacer(modifier = Modifier.height(24.dp))
 

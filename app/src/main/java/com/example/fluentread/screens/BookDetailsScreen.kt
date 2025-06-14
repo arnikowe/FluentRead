@@ -233,19 +233,21 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                     else -> ""
                                 }
 
-
                                 val isFlashcardAvailable = availableFlashcards[chapterInt] == true
+                                val isExerciseAvailable = availableFlashcards[chapterInt] == true
+
+                                val isLocked = (action == "Fiszki" || action == "Ćwiczenia") && !isFlashcardAvailable
 
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 6.dp)
                                         .background(
-                                            color = if (action == "Fiszki" && !isFlashcardAvailable) FluentSurfaceDark.copy(alpha = 0.4f) else FluentSurfaceDark,
+                                            color = if (isLocked) FluentSurfaceDark.copy(alpha = 0.4f) else FluentSurfaceDark,
                                             shape = RoundedCornerShape(8.dp)
                                         )
                                         .then(
-                                            if (action == "Fiszki" && !isFlashcardAvailable) Modifier
+                                            if (isLocked) Modifier
                                             else Modifier.clickable {
                                                 when (action) {
                                                     "Czytanie" -> {
@@ -264,17 +266,13 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                                             }
                                                         }
                                                     }
-                                                    "Fiszki" -> {
+                                                    "Fiszki", "Ćwiczenia" -> {
                                                         navController.navigate(route) {
                                                             popUpTo("screen_book_details") { inclusive = false }
                                                             launchSingleTop = true
                                                         }
                                                     }
-                                                    "Ćwiczenia" -> {
-                                                        navController.navigate(route)
-                                                    }
                                                 }
-
                                             }
                                         )
                                         .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -296,7 +294,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                             style = FluentTypography.bodyMedium,
                                             modifier = Modifier.weight(1f)
                                         )
-                                        if (action == "Flashcards" && !isFlashcardAvailable) {
+                                        if (isLocked) {
                                             Icon(
                                                 painter = painterResource(id = R.drawable.ic_lock),
                                                 contentDescription = "Locked",
@@ -306,6 +304,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                         }
                                     }
                                 }
+
                             }
                         }
                     }

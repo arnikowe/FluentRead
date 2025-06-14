@@ -27,6 +27,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.fluentread.R
 import kotlinx.coroutines.launch
 import com.example.fluentread.navigation.NavGraph
+import com.example.fluentread.ui.theme.Background
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.viewmodel.UserViewModel
 
@@ -94,7 +95,7 @@ fun MainScaffold(navController: NavHostController) {
                         IconButton(onClick = {
                             scope.launch { drawerState.open() }
                         }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White,modifier = Modifier.size(28.dp))
+                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Background,modifier = Modifier.size(28.dp))
                         }
                     },
                     actions = {

@@ -2,6 +2,7 @@ package com.example.fluentread.screens
 
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
@@ -15,11 +16,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -282,21 +286,53 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                         colors = ButtonDefaults.buttonColors(
                             containerColor = FluentBackgroundDark,
                             contentColor = FluentSecondaryDark
-                        )
+                        ),
+                        shape = RectangleShape
                     ) {
                         Text(
                             text = if (isLastChapter) "Koniec. Powrót do spisu treści" else "Następny rozdział",
                             style = FluentTypography.titleMedium
                         )
                     }
+
                 }
             }
         }
     }
+
+    //TODO Może namieszać
+    BackHandler {
+        bookId?.let {
+            navController.navigate("bookDetails/$it") {
+                popUpTo("screen_read?bookId=$it&chapter=$chapter") { inclusive = true }
+            }
+        }
+    }
+
     if (userViewModel.showTextSettingsDialog) {
         AlertDialog(
             onDismissRequest = { userViewModel.toggleTextSettingsDialog() },
-            title = { Text("Ustawienia wyglądu tekstu", color = FluentSecondaryDark )},
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Ustawienia wyglądu tekstu",
+                        color = FluentSecondaryDark,
+                        style = FluentTypography.titleMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { userViewModel.toggleTextSettingsDialog() }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Zamknij",
+                            tint = FluentSecondaryDark
+                        )
+                    }
+                }
+            }
+            ,
             text = {
                 Column {
                     var tempFontSize by remember { mutableStateOf(fontSize) }
@@ -304,7 +340,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                     var tempSelectedTextColor by remember { mutableStateOf(selectedTextColor) }
                     var tempSelectedBackgroundColor by remember { mutableStateOf(selectedBackgroundColor) }
                     var tempSelectedFont by remember { mutableStateOf(selectedFont) }
-
 
                     Text("Czcionka")
                     LazyRow(
@@ -399,6 +434,28 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
 
                     Button(
                         onClick = {
+                            fontSize = 16.sp
+                            textPadding = 8.dp
+                            textColor = Color.White
+                            backgroundColor = FluentSurfaceDark
+                            selectedTextColor = Color.White
+                            selectedBackgroundColor = FluentSurfaceDark
+                            selectedFont = FontFamily.Default
+                            userViewModel.toggleTextSettingsDialog()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = FluentBackgroundDark,
+                            contentColor = FluentSecondaryDark
+                        )
+                    ) {
+                        Text("Zresetuj ustawienia", style = FluentTypography.titleMedium)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = {
                             fontSize = tempFontSize
                             textPadding = tempTextPadding
                             textColor = tempSelectedTextColor
@@ -409,32 +466,18 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                             userViewModel.toggleTextSettingsDialog()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = FluentBackgroundDark,
-                            contentColor = FluentSecondaryDark
-                        )
-                    ) {
-                        Text("Zastosuj", style = FluentTypography.titleMedium)
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedButton(
-                        onClick = { userViewModel.toggleTextSettingsDialog() },
-                        modifier = Modifier.fillMaxWidth(),
                         border = BorderStroke(2.dp, FluentSecondaryDark),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = FluentSecondaryDark
                         )
                     ) {
-                        Text("Zamknij", style = FluentTypography.titleMedium)
+                        Text("Zastosuj", style = FluentTypography.titleMedium)
                     }
                 }
             },
             confirmButton = {}
         )
     }
-
 
     if (selectedWord != null) {
         val cleanedWord = selectedWord!!.replace(Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$"""), "")
