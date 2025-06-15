@@ -175,6 +175,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             val chapter = backStackEntry.arguments?.getString("chapter")
             val correct = backStackEntry.arguments?.getInt("correct") ?: 0
             val wrong = backStackEntry.arguments?.getInt("wrong") ?: 0
+            val source = userViewModel.sessionSource ?: "flashcards"
+
+            android.util.Log.d("SummaryScreenNav", "sessionSource: $source")
 
             SummaryScreen(
                 bookTitle = bookTitle,
@@ -182,15 +185,36 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                 correctAnswers = correct,
                 wrongAnswers = wrong,
                 onRepeat = {
-                    userViewModel. resetFlashcardSession()
-                    navController.popBackStack("repeat_mode/{bookId}?chapter={chapter}", inclusive = false)
+                    userViewModel.resetFlashcardSession()
+
+                    when (source) {
+                        "book" -> navController.navigate("repeat_mode/${userViewModel.bookTitle}?chapter=${userViewModel.currentChapter}")
+                        "favorites" -> navController.navigate("repeat_mode/favorites")
+                        "all_flashcards" -> navController.navigate("repeat_mode/all_flashcards")
+                        else -> navController.navigate("repeat_mode/${userViewModel.bookTitle}")
+                    }
                 },
                 onBack = {
-                    userViewModel. resetFlashcardSession()
-                    navController.popBackStack("screen_flashcard_set?bookId=$bookTitle&chapter=$chapter", false)
+                    userViewModel.resetFlashcardSession()
+
+                    when (source) {
+                        "book" -> {
+                            val route = if (chapter != null) {
+                                "screen_flashcard_set?bookId=${userViewModel.bookTitle}&chapter=$chapter"
+                            } else {
+                                "screen_flashcard_set?bookId=${userViewModel.bookTitle}"
+                            }
+                            navController.navigate(route)
+                        }
+                        "favorites" -> navController.navigate("flashcard_set/favorites")
+                        "all_flashcards" -> navController.navigate("flashcard_set/all_flashcards")
+                        else -> navController.navigate("flashcard_set/${userViewModel.bookTitle}")
+                    }
                 }
             )
         }
+
+
         composable("library") {
             LibraryScreen(navController = navController, userViewModel = userViewModel)
         }

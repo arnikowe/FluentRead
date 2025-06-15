@@ -32,6 +32,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
     var chaptersRead by remember { mutableStateOf<List<Int>>(emptyList()) }
     val showDialog = remember { mutableStateOf(false) }
     val pendingChatChapter = remember { mutableStateOf<Int?>(null) }
+    userViewModel.sessionSource = "book"
 
 
 

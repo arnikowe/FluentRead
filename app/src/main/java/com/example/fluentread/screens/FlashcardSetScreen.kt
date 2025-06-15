@@ -39,6 +39,13 @@ fun FlashcardSetScreen(
     var sortType by remember { mutableStateOf("original") }
     var selectedSortType by remember { mutableStateOf(sortType) }
 
+    userViewModel.sessionSource = when {
+        bookId == "favorites" -> "favorites"
+        bookId == "all_flashcards" -> "all_flashcards"
+        userViewModel.sessionSource == "flashcards" -> "flashcards"
+        else -> "book"
+    }
+
 
     LaunchedEffect(bookId, chapter) {
         when (bookId) {

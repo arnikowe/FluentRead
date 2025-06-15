@@ -115,9 +115,19 @@ fun FlashcardRepeatScreen(
         if (userViewModel.sessionFinished && !hasNavigated.value) {
             hasNavigated.value = true
 
+            val chapterParam = when (userViewModel.sessionSource) {
+                "favorites", "all_flashcards", "flashcards" -> ""
+                else -> userViewModel.currentChapter?.let { "&chapter=$it" } ?: ""
+            }
+
+            val bookTitleParam = when (userViewModel.sessionSource) {
+                "favorites" -> "Ulubione"
+                "all_flashcards" -> "Wszystkie fiszki"
+                else -> userViewModel.bookTitle
+            }
+
             navController.navigate(
-                "summary_screen_flashcards?bookTitle=${userViewModel.bookTitle}" +
-                        "&chapter=${userViewModel.currentChapter}" +
+                "summary_screen_flashcards?bookTitle=$bookTitleParam$chapterParam" +
                         "&correct=${userViewModel.knowCount}" +
                         "&wrong=${userViewModel.dontKnowCount}"
             ) {
@@ -128,9 +138,6 @@ fun FlashcardRepeatScreen(
             }
         }
     }
-
-
-
 
     Box(
             modifier = Modifier

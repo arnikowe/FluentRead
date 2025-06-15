@@ -116,6 +116,9 @@ open class UserViewModel : ViewModel() {
     var currentBooksError by mutableStateOf<String?>(null)
         private set
 
+    var sessionSource: String? by mutableStateOf(null)
+
+
     fun loadCurrentBooks() {
         val uid = userId
         if (uid == null) {

@@ -37,6 +37,8 @@ fun FlashcardsScreen(
     var bookStats by remember { mutableStateOf<List<Triple<Book, Int, String>>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
+    userViewModel.sessionSource = "flashcards"
+
     LaunchedEffect(Unit) {
         isLoading = true
 
@@ -136,8 +138,14 @@ fun FlashcardsScreen(
                             .background(FluentBackgroundDark)
                             .padding(vertical = 8.dp)
                             .clickable {
+                                userViewModel.sessionSource = when (id) {
+                                    "favorites" -> "favorites"
+                                    "all_flashcards" -> "all_flashcards"
+                                    else -> "flashcards"
+                                }
                                 navController.navigate("flashcard_set/${id}")
-                            },
+                            }
+                        ,
                         elevation = CardDefaults.cardElevation(),
                         colors = CardDefaults.cardColors(containerColor = FluentBackgroundDark)
                     ) {
