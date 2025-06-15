@@ -266,8 +266,8 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                                         val nextChapter = (chapter.toIntOrNull() ?: 0) + 1
 
                                         if (isLastChapter) {
-                                            userViewModel.removeBookFromCurrentRead(bookId)
                                             userViewModel.addToFinished(bookId)
+                                            userViewModel.removeBookFromCurrentRead(bookId)
                                             navController.navigate("bookDetails/$bookId")
                                         } else {
                                             userViewModel.saveChapterAsRead(userId, bookId, chapter.toInt())

@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fluentread.dateClass.Book
+import com.example.fluentread.dateClass.FinishedBookWithFlashcards
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
@@ -527,18 +528,28 @@ open class UserViewModel : ViewModel() {
             .addOnSuccessListener {
                 Log.d("UserViewModel", "Zaktualizowano lastRead na $bookId")
 
-                currentReadRef.set(mapOf("chapter" to chapter))
-                    .addOnSuccessListener {
-                        Log.d("UserViewModel", "Zapisano/zaaktualizowano currentRead dla $bookId -> chapter $chapter")
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("UserViewModel", "Błąd przy zapisie currentRead: ${e.localizedMessage}")
+                currentReadRef.get()
+                    .addOnSuccessListener { snapshot ->
+                        val data = mutableMapOf<String, Any>("chapter" to chapter)
+                        if (!snapshot.exists()) {
+                            data["startedAt"] = System.currentTimeMillis()
+                            Log.d("UserViewModel", "Ustawiam startedAt dla $bookId")
+                        }
+
+                        currentReadRef.set(data)
+                            .addOnSuccessListener {
+                                Log.d("UserViewModel", "Zapisano/zaaktualizowano currentRead dla $bookId -> chapter $chapter")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("UserViewModel", "Błąd przy zapisie currentRead: ${e.localizedMessage}")
+                            }
                     }
             }
             .addOnFailureListener { e ->
                 Log.e("UserViewModel", "Błąd przy zapisie lastRead: ${e.localizedMessage}")
             }
     }
+
 
 
     fun loadLastReadProgress(userId: String, bookId: String, onResult: (String?, Int?) -> Unit) {
@@ -840,33 +851,48 @@ open class UserViewModel : ViewModel() {
         val userRef = db.collection("users").document(userId)
         val bookRef = db.collection("books").document(bookId)
         val currentReadRef = userRef.collection("currentRead").document(bookId)
+        val finishedCollectionRef = userRef.collection("finishedBooks")
         val bookmarksRef = currentReadRef.collection("bookmarks")
 
-        userRef.update("finishedBooks", FieldValue.arrayUnion(bookRef))
-            .addOnSuccessListener {
-                Log.d("FinishedBooks", "Dodano książkę $bookId do finishedBooks")
-            }
-            .addOnFailureListener { e ->
-                Log.e("FinishedBooks", "Błąd przy dodawaniu książki: ${e.localizedMessage}")
-            }
-        bookmarksRef.get()
-            .addOnSuccessListener { snapshot ->
-                val batch = db.batch()
-                for (doc in snapshot.documents) {
-                    batch.delete(doc.reference)
+        currentReadRef.get().addOnSuccessListener { currentReadSnapshot ->
+            val startedAt = currentReadSnapshot.getLong("startedAt") ?: System.currentTimeMillis()
+            val endedAt = System.currentTimeMillis()
+
+            val finishedData = mapOf(
+                "bookId" to bookRef,
+                "startedAt" to startedAt,
+                "endedAt" to endedAt
+            )
+
+            finishedCollectionRef.add(finishedData)
+                .addOnSuccessListener {
+                    Log.d("FinishedBooks", "Dodano wpis ukończenia książki $bookId")
                 }
-                batch.commit()
-                    .addOnSuccessListener {
-                        Log.d("Bookmarks", "Usunięto zakładki dla książki $bookId")
+                .addOnFailureListener { e ->
+                    Log.e("FinishedBooks", "Błąd zapisu: ${e.localizedMessage}")
+                }
+
+            bookmarksRef.get()
+                .addOnSuccessListener { snapshot ->
+                    val batch = db.batch()
+                    for (doc in snapshot.documents) {
+                        batch.delete(doc.reference)
                     }
-                    .addOnFailureListener { e ->
-                        Log.e("Bookmarks", "Błąd przy usuwaniu zakładek: ${e.localizedMessage}")
-                    }
-            }
-            .addOnFailureListener { e ->
-                Log.e("Bookmarks", "Błąd przy odczycie zakładek: ${e.localizedMessage}")
-            }
+                    batch.commit()
+                        .addOnSuccessListener {
+                            Log.d("Bookmarks", "Usunięto zakładki dla książki $bookId")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("Bookmarks", "Błąd przy usuwaniu zakładek: ${e.localizedMessage}")
+                        }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Bookmarks", "Błąd przy odczycie zakładek: ${e.localizedMessage}")
+                }
+        }
     }
+
+
     fun checkIfBookIsFinishedOrCurrent(
         userId: String,
         bookId: String,
@@ -874,16 +900,15 @@ open class UserViewModel : ViewModel() {
     ) {
         val db = FirebaseFirestore.getInstance()
         val userRef = db.collection("users").document(userId)
-        val bookRef = db.collection("books").document(bookId)
+        val finishedBooksRef = userRef.collection("finishedBooks")
         val currentReadDoc = userRef.collection("currentRead").document(bookId)
 
-        userRef.get()
-            .addOnSuccessListener { userSnapshot ->
-                val finishedList = userSnapshot.get("finishedBooks") as? List<*>
-                val isFinished = finishedList?.any {
-                    (it as? DocumentReference)?.id == bookId
-                } ?: false
-
+        finishedBooksRef
+            .whereEqualTo("bookId", db.collection("books").document(bookId))
+            .limit(1)
+            .get()
+            .addOnSuccessListener { finishedQuery ->
+                val isFinished = !finishedQuery.isEmpty
                 currentReadDoc.get()
                     .addOnSuccessListener { docSnapshot ->
                         val isCurrent = docSnapshot.exists()
@@ -897,37 +922,100 @@ open class UserViewModel : ViewModel() {
                 onResult(false, false)
             }
     }
+
+
     fun shouldAllowChat(bookId: String, chapter: Int, onResult: (Boolean) -> Unit) {
         val uid = userId ?: return onResult(false)
         val db = FirebaseFirestore.getInstance()
 
-        db.collection("users").document(uid)
-            .collection("finishedBooks")
-            .document(bookId)
-            .get()
-            .addOnSuccessListener { finishedDoc ->
-                if (finishedDoc.exists()) {
-                    onResult(true)
-                    return@addOnSuccessListener
-                }
+        val userRef = db.collection("users").document(uid)
+        val finishedBooksRef = userRef.collection("finishedBooks")
+        val currentReadRef = userRef.collection("currentRead").document(bookId)
 
-                db.collection("users").document(uid)
-                    .collection("currentRead")
-                    .document(bookId)
-                    .get()
-                    .addOnSuccessListener { currentReadDoc ->
-                        val currentChapter = currentReadDoc.getLong("chapter")?.toInt()
-                        if (currentChapter != null) {
-                            onResult(currentChapter > chapter)
+        finishedBooksRef
+            .whereEqualTo("bookId", db.collection("books").document(bookId))
+            .limit(1)
+            .get()
+            .addOnSuccessListener { finishedQuery ->
+                if (!finishedQuery.isEmpty) {
+                    onResult(true)
+                } else {
+                    currentReadRef.get()
+                        .addOnSuccessListener { currentReadDoc ->
+                            val currentChapter = currentReadDoc.getLong("chapter")?.toInt()
+                            onResult(currentChapter != null && currentChapter > chapter)
                         }
-                    }
-                    .addOnFailureListener {
-                        onResult(false)
-                    }
+                        .addOnFailureListener {
+                            onResult(false)
+                        }
+                }
             }
             .addOnFailureListener {
                 onResult(false)
             }
     }
+
+    //Statystyki lista przeczytanych książek
+
+    fun loadFinishedBooksWithFlashcards(
+        userId: String,
+        onResult: (List<FinishedBookWithFlashcards>) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        val userRef = db.collection("users").document(userId)
+        val finishedBooksRef = userRef.collection("finishedBooks")
+        val flashcardsRef = userRef.collection("flashcards")
+
+        finishedBooksRef.get()
+            .addOnSuccessListener { finishedSnapshot ->
+                val results = mutableListOf<FinishedBookWithFlashcards>()
+                val finishedList = finishedSnapshot.documents
+
+                if (finishedList.isEmpty()) {
+                    onResult(emptyList())
+                    return@addOnSuccessListener
+                }
+
+                var completed = 0
+
+                for (doc in finishedList) {
+                    val bookRef = doc.getDocumentReference("bookId")
+                    val bookId = bookRef?.id ?: continue
+                    val startedAt = doc.getLong("startedAt") ?: continue
+                    val endedAt = doc.getLong("endedAt") ?: continue
+
+                    flashcardsRef
+                        .whereEqualTo("bookId", bookId)
+                        .whereGreaterThanOrEqualTo("timestamp", startedAt)
+                        .whereLessThanOrEqualTo("timestamp", endedAt)
+                        .get()
+                        .addOnSuccessListener { flashcardSnapshot ->
+                            val flashcardCount = flashcardSnapshot.size()
+                            results.add(
+                                FinishedBookWithFlashcards(
+                                    bookId = bookId,
+                                    startedAt = startedAt,
+                                    endedAt = endedAt,
+                                    flashcardCount = flashcardCount
+                                )
+                            )
+                            completed++
+                            if (completed == finishedList.size) {
+                                onResult(results)
+                            }
+                        }
+                        .addOnFailureListener {
+                            completed++
+                            if (completed == finishedList.size) {
+                                onResult(results)
+                            }
+                        }
+                }
+            }
+            .addOnFailureListener {
+                onResult(emptyList())
+            }
+    }
+
 
 }

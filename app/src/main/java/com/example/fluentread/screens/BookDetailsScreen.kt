@@ -191,7 +191,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                 modifier = Modifier.weight(1f)
                             )
 
-                            if (lastReadChapter != null && chapterInt < lastReadChapter!!) {
+                            if (chaptersRead.contains(chapterInt) || (isFinished == true && isCurrent != true)) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_check),
                                     contentDescription = "Przeczytane",
