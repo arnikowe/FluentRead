@@ -4,9 +4,13 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,11 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fluentread.R
+import com.example.fluentread.dateClass.FinishedBookWithFlashcardsDetails
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentOnPrimaryDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 import com.example.fluentread.viewmodel.UserViewModel
+import com.google.firebase.firestore.FirebaseFirestore
 import com.patrykandpatrick.vico.compose.axis.horizontal.bottomAxis
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
 import com.patrykandpatrick.vico.compose.chart.Chart
@@ -33,11 +40,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.patrykandpatrick.vico.core.component.shape.Shapes
 import com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider
-
-
-
-
-
+import kotlinx.coroutines.tasks.await
 
 
 @Composable
@@ -164,9 +167,11 @@ fun StatisticsScreen(userViewModel: UserViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .background(FluentOnPrimaryDark)
             .padding(16.dp)
-    ) {
+    )
+    {
         Spacer(modifier = Modifier.height(60.dp))
 
         Card(
@@ -222,7 +227,6 @@ fun StatisticsScreen(userViewModel: UserViewModel) {
             month = selectedMonthBooks,
             year = selectedYearBooks
         )
-
 
         Spacer(modifier = Modifier.height(24.dp))
         Log.d("SectionChartDebug", "selectedPeriod=$selectedPeriodFlashcards, weekRange=$weekRangeFlashcards, month=$selectedMonthFlashcards, year=$selectedYearFlashcards")
@@ -342,6 +346,12 @@ fun StatisticsScreen(userViewModel: UserViewModel) {
                 }
             )
         }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        FinishedBooksHistory(
+            userId = userId,
+            userViewModel = userViewModel
+        )
 
 
     }
@@ -365,10 +375,11 @@ fun SectionWithChart(
         title,
         fontWeight = FontWeight.Bold,
         color = Color(0xFFEDE6B1),
-        fontSize = 16.sp
+        fontSize = 20.sp
     )
+     Spacer(modifier = Modifier.height(4.dp))
     Divider(color = Color(0xFFEDE6B1), thickness = 1.dp)
-
+     Spacer(modifier = Modifier.height(8.dp))
          PeriodSelector(
              selectedPeriod = selectedPeriod,
              onPeriodSelected = onPeriodSelected,
@@ -880,4 +891,181 @@ fun YearPickerDialog(
         },
         containerColor = Color(0xFF7D5E4C)
     )
+}
+@Composable
+fun FinishedBooksHistory(
+    userId: String,
+    userViewModel: UserViewModel = viewModel()
+) {
+    var booksWithFlashcards by remember { mutableStateOf<List<FinishedBookWithFlashcardsDetails>>(emptyList()) }
+    var expandedBookIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var expandedFlashcardBookIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    LaunchedEffect(userId) {
+        val db = FirebaseFirestore.getInstance()
+        val userRef = db.collection("users").document(userId)
+        val finishedBooksSnapshot = userRef.collection("finishedBooks").get().await()
+
+        val list = finishedBooksSnapshot.documents.mapNotNull { doc ->
+            val entryId = doc.id
+            val bookRef = doc.getDocumentReference("bookId") ?: return@mapNotNull null
+            val bookSnapshot = bookRef.get().await()
+            val title = bookSnapshot.getString("title") ?: return@mapNotNull null
+            val startedAt = doc.getLong("startedAt") ?: return@mapNotNull null
+            val endedAt = doc.getLong("endedAt") ?: return@mapNotNull null
+
+            val allFlashcardsSnapshot = userRef.collection("flashcards")
+                .whereEqualTo("bookId", bookRef.id)
+                .get()
+                .await()
+
+            val endOfDay = endedAt + (24 * 60 * 60 * 1000 - 1)
+            val flashcards = allFlashcardsSnapshot.documents.mapNotNull { flashcardDoc ->
+                val timestamp = flashcardDoc.getLong("timestamp") ?: 0
+                val word = flashcardDoc.getString("word")
+                val inRange = timestamp in startedAt..endOfDay
+                if (inRange) word else null
+            }
+
+            FinishedBookWithFlashcardsDetails(
+                entryId = entryId,
+                bookId = bookRef.id,
+                title = title,
+                startedAt = startedAt,
+                endedAt = endedAt,
+                flashcards = flashcards
+            )
+        }
+
+        booksWithFlashcards = list
+    }
+
+    Column(modifier = Modifier.padding(4.dp)) {
+        Text(
+            "Historia przeczytanych książek",
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            color = Color(0xFFEDE6B1)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Divider(color = Color(0xFFEDE6B1), thickness = 1.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        booksWithFlashcards.forEach { book ->
+            val isBookExpanded = book.entryId in expandedBookIds
+            val isFlashcardExpanded = book.entryId in expandedFlashcardBookIds
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF3A2D1A))
+            ) {
+                Column {
+                    // Tytuł książki
+                    ListItem(
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 56.dp),
+                        headlineContent = {
+                            Text(
+                                text = book.title,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        ,
+                        trailingContent = {
+                            IconToggleButton(
+                                checked = isBookExpanded,
+                                onCheckedChange = {
+                                    expandedBookIds = if (isBookExpanded)
+                                        expandedBookIds - book.entryId
+                                    else
+                                        expandedBookIds + book.entryId
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (isBookExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    )
+
+                    if (isBookExpanded) {
+                        val formatter = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+                        val start = formatter.format(Date(book.startedAt))
+                        val end = formatter.format(Date(book.endedAt))
+
+                        // Zakres dat
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(FluentBackgroundDark)
+                                .defaultMinSize(minHeight = 56.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = "$start - $end",
+                                modifier = Modifier.padding(start = 16.dp),
+                                color = Color.White
+                            )
+                        }
+
+                        // Ilość fiszek
+                        ListItem(
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 56.dp)
+                                .background(FluentBackgroundDark),
+                            headlineContent = {
+                                Text("Ilość dodanych fiszek: ${book.flashcards.size}", color = Color.White)
+                            },
+                            trailingContent = {
+                                IconToggleButton(
+                                    checked = isFlashcardExpanded,
+                                    onCheckedChange = {
+                                        expandedFlashcardBookIds = if (isFlashcardExpanded)
+                                            expandedFlashcardBookIds - book.entryId
+                                        else
+                                            expandedFlashcardBookIds + book.entryId
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFlashcardExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = null,
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                        )
+
+                        // Lista fiszek
+                        if (isFlashcardExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(FluentBackgroundDark )
+                            ) {
+                                book.flashcards.forEach { word ->
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .defaultMinSize(minHeight = 40.dp),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        Text(
+                                            "- $word",
+                                            modifier = Modifier.padding(start = 32.dp),
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
