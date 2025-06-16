@@ -13,6 +13,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import com.example.fluentread.R
+import com.example.fluentread.ui.theme.Background
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 
@@ -36,7 +37,7 @@ fun SummaryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF6E4A36))
+            .background(Background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween

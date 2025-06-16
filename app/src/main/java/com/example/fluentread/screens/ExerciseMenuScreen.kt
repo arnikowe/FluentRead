@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.fluentread.ui.theme.Background
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 import com.example.fluentread.ui.theme.FluentSurfaceDark
@@ -48,7 +49,7 @@ fun ExerciseMenuScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

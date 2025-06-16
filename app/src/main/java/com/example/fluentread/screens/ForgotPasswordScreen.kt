@@ -65,9 +65,8 @@ fun ForgotPasswordScreen(navController: NavController) {
 
             InputField(label = "Email", value = email, onValueChange = { email = it })
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(15.dp))
 
-            // Button
             Button(
                 onClick = {
                     if (email.isNotEmpty()) {
@@ -97,11 +96,3 @@ fun ForgotPasswordScreen(navController: NavController) {
 
 
 
-/*
-@Preview(showBackground = true)
-@Composable
-fun ForgotPasswordScreenPreview() {
-    MaterialTheme {
-        ForgotPasswordScreen(navController = rememberNavController())
-    }
-}*/

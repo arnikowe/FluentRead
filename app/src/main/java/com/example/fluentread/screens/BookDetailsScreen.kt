@@ -13,6 +13,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.fluentread.R
@@ -69,31 +70,9 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
     ) {
         Spacer(modifier = Modifier.height(70.dp))
-
-        Text(
-            text = currentTitle,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            textAlign = TextAlign.Center,
-            style = FluentTypography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = currentAuthor,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            textAlign = TextAlign.Center,
-            style = FluentTypography.titleSmall,
-            fontWeight = FontWeight.Normal,
-            color = FluentSecondaryDark
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
         var isFinished by remember { mutableStateOf<Boolean?>(null) }
         var isCurrent by remember { mutableStateOf<Boolean?>(null) }
         val userId = userViewModel.userId
@@ -121,16 +100,6 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
             } else 0f
             else -> 0f
         }
-        LinearProgressIndicator(
-            progress = progress,
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(6.dp)
-                .align(Alignment.CenterHorizontally),
-            color = FluentSecondaryDark
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
         LaunchedEffect(userViewModel.userId) {
             userViewModel.userId?.let { userId ->
                 userViewModel.loadLastReadProgress(userId, bookId) { returnedBookId, chapter ->
@@ -140,22 +109,68 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                 }
             }
         }
-
-        if (lastReadChapter != null) {
-            Button(
-                onClick = {
-                    navController.navigate("screen_read?bookId=$bookId&chapter=$lastReadChapter")
-                },
-                modifier = Modifier
-                    .fillMaxWidth(0.8f)
-                    .align(Alignment.CenterHorizontally),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = FluentSecondaryDark
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .background(FluentBackgroundDark, shape = RoundedCornerShape(12.dp))
+                .padding(vertical = 16.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = currentTitle,
+                    style = FluentTypography.titleLarge.copy(
+                        color = Color(0xFFEDE6B1),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
+                    ),
+                    textAlign = TextAlign.Center
                 )
-            ) {
-                Text("Wznów rozdział ${lastReadChapter}", color = FluentBackgroundDark)
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = currentAuthor,
+                    style = FluentTypography.titleSmall.copy(
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFFCBBBA0)
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LinearProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(6.dp),
+                    color = FluentSecondaryDark,
+                    trackColor = Color(0xFF6E5942)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (lastReadChapter != null) {
+                    Button(
+                        onClick = {
+                            navController.navigate("screen_read?bookId=$bookId&chapter=$lastReadChapter")
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Background,
+                            contentColor = Color(0xFFEDE6B1)
+                        )
+                    ) {
+                        Text("Wznów rozdział $lastReadChapter", fontWeight = FontWeight.Bold)
+                    }
+                }
+
             }
         }
+
         Spacer(modifier = Modifier.height(8.dp))
 
         Column(
@@ -167,7 +182,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             chapters.forEach { chapterNumber ->
-                val chapterName = "Chapter ${chapterNumber.toInt()}"
+                val chapterName = "Rozdział ${chapterNumber.toInt()}"
                 val chapterInt = chapterNumber.toInt()
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -189,6 +204,7 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                 color = Color.White,
                                 style = FluentTypography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
                                 modifier = Modifier.weight(1f)
                             )
 
@@ -291,9 +307,11 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                                         )
                                         Text(
                                             text = action,
-                                            color = Color.White,
+                                            color = Background,
                                             style = FluentTypography.bodyMedium,
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier.weight(1f),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp
                                         )
                                         if (isLocked) {
                                             Icon(
@@ -318,7 +336,13 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
     if (showDialog.value && pendingChatChapter.value != null) {
         AlertDialog(
             onDismissRequest = { showDialog.value = false },
-            title = { Text("Rozdział nieprzeczytany") },
+            title = {
+                Text(
+                    text = "Rozdział nieprzeczytany",
+                    color = Color(0xFFEDE6B1),
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = { Text("Nie przeczytałeś jeszcze tego rozdziału. Czy na pewno chcesz przeprowadzić konwersację?") },
             confirmButton = {
                 TextButton(
@@ -328,7 +352,9 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                         navController.navigate("screen_chat?bookId=$bookId&chapter=$chapter")
                     }
                 ) {
-                    Text("Przejdź")
+                    Text(text = "Przejdź",
+                        color = Color(0xFFB3A3A3)
+                    )
                 }
             },
             dismissButton = {
@@ -338,7 +364,9 @@ fun BookDetailsScreen(navController: NavHostController, bookId: String, userView
                         pendingChatChapter.value = null
                     }
                 ) {
-                    Text("Anuluj")
+                    Text(text = "Anuluj",
+                        color = Color(0xFFB3A3A3)
+                    )
                 }
             },
             containerColor = FluentBackgroundDark,

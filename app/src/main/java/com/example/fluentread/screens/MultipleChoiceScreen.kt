@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.example.fluentread.ui.theme.Background
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 import com.example.fluentread.ui.theme.FluentSurfaceDark
@@ -95,7 +96,7 @@ fun MultipleChoiceScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
@@ -109,8 +110,8 @@ fun MultipleChoiceScreen(
 
         LinearProgressIndicator(
             progress = (currentIndex + 1).toFloat() / flashcards.size,
-            color = FluentSecondaryDark,
-            trackColor = Color.Gray,
+            color = FluentBackgroundDark,
+            trackColor = Color(0xFFB3A3A3),
             modifier = Modifier.fillMaxWidth().height(8.dp)
         )
 

@@ -91,7 +91,7 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
             .padding(12.dp)
     ) {
         Spacer(modifier = Modifier.height(55.dp))

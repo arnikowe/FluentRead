@@ -99,7 +99,7 @@ fun ChatLibraryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
     ) {
         Spacer(modifier = Modifier.height(60.dp))
         OutlinedTextField(

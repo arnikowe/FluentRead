@@ -107,7 +107,7 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
             .padding(12.dp)
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { focusManager.clearFocus() })
@@ -142,7 +142,7 @@ fun LibraryScreen(navController: NavController, userViewModel: UserViewModel) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_filter),
                     contentDescription = "Filtr",
-                    tint = FluentBackgroundDark
+                    tint = Color(0xFFB3A3A3)
                 )
             }
         }
@@ -346,7 +346,7 @@ fun FilterDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = { onApply(tempSelectedGenres, tempSelectedLevels) }) {
-                Text("Zastosuj", color = FluentSecondaryDark)
+                Text("Zastosuj", color =Color(0xFFB3A3A3))
             }
         },
         title = {
@@ -355,7 +355,7 @@ fun FilterDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Filtry", color = FluentSecondaryDark)
+                Text("Filtry", color = FluentSecondaryDark, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Zamknij", tint = FluentSecondaryDark)
                 }
@@ -401,7 +401,7 @@ fun FilterDialog(
                     }
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 4.dp))
+
 
                 Row(
                     modifier = Modifier

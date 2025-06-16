@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -66,7 +68,7 @@ fun ChatScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
             .pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) }
             .padding(top = 55.dp, start = 8.dp, end = 8.dp, bottom = 8.dp)
     ) {
@@ -83,7 +85,7 @@ fun ChatScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                         onLongPress = { tappedText ->
                             selectedTextToTranslate = tappedText
                             showTranslationDialog = true
-                            translatedText = "Translating..."
+                            translatedText = "Tłumaczę..."
                             coroutineScope.launch {
                                 userViewModel.translateWord(tappedText, tappedText) { result ->
                                     translatedText = result
@@ -110,11 +112,10 @@ fun ChatScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                 value = inputText.value,
                 onValueChange = { inputText.value = it },
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 8.dp),
+                    .weight(1f),
                 placeholder = {
                     Text(
-                        "Type your reply...",
+                        "Podaj swoją odpowiedź",
                         color = FluentPrimaryDark
                     )
                 },
@@ -127,23 +128,30 @@ fun ChatScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                     cursorColor = FluentSecondaryDark
                 )
             )
-            IconButton(
-                onClick = {
-                    val text = inputText.value.text.trim()
-                    if (text.isNotEmpty()) {
-                        inputText.value = TextFieldValue()
-                        coroutineScope.launch {
-                            chatViewModel.sendUserMessage(text)
-                            listState.animateScrollToItem(chatMessages.size)
+
+            Box(
+                modifier = Modifier
+                    .height(56.dp)
+                    .aspectRatio(1f)
+                    .background(FluentBackgroundDark, shape = RoundedCornerShape(4.dp))
+                    .clickable {
+                        val text = inputText.value.text.trim()
+                        if (text.isNotEmpty()) {
+                            inputText.value = TextFieldValue()
+                            coroutineScope.launch {
+                                chatViewModel.sendUserMessage(text)
+                                listState.animateScrollToItem(chatMessages.size)
+                            }
                         }
-                    }
-                },
-                modifier = Modifier.size(40.dp)
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = Icons.Default.Send, contentDescription = "Send", tint=FluentBackgroundDark)
-
+                Icon(
+                    imageVector = Icons.Default.Send,
+                    contentDescription = "Wyślij",
+                    tint = FluentPrimaryDark
+                )
             }
-
         }
         if (showTranslationDialog) {
             AlertDialog(
@@ -153,8 +161,12 @@ fun ChatScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel) 
                         Text("OK")
                     }
                 },
-                title = { Text("Translation") },
-                text = { Text(translatedText) },
+                title = {Text(
+                    text = "Tłumaczenie",
+                    color = Color(0xFFEDE6B1),
+                    fontWeight = FontWeight.Bold
+                ) },
+                text = { Text(  text =translatedText, color = Color.White)},
                 containerColor = FluentBackgroundDark,
                 textContentColor = FluentSecondaryDark
             )
@@ -175,7 +187,7 @@ fun ChatMessageBubble(
         horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
     ) {
         Surface(
-            color = if (message.isUser) FluentOnPrimaryDark else FluentBackgroundDark,
+            color = if (message.isUser) FluentSurfaceDark else FluentBackgroundDark,
             shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .widthIn(max = 280.dp)

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -44,6 +45,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.fluentread.R
+import com.example.fluentread.ui.theme.Background
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 import com.example.fluentread.ui.theme.FluentSurfaceDark
@@ -84,7 +86,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
     var textPadding by remember { mutableStateOf(8.dp) }
     var fontSize by remember { mutableStateOf(16.sp) }
     var textColor by remember { mutableStateOf(Color.White) }
-    var backgroundColor by remember { mutableStateOf(FluentSurfaceDark) }
+    var backgroundColor by remember { mutableStateOf(Background) }
     var selectedFont by remember { mutableStateOf(FontFamily.Default) }
     val availableTextColors = listOf(
         Color.White, Color.Black, Color.Gray, Color.Yellow, Color.Cyan, Color.Red, Color.Green, Color.Magenta
@@ -121,7 +123,6 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
         }
     }
 
-    // Przywracanie zakładki
     LaunchedEffect(content) {
         if (bookId != null && chapter != null && content.isNotBlank()) {
             userViewModel.checkBookmark(bookId, chapter, userId) { index, offset ->
@@ -153,7 +154,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(FluentSurfaceDark),
+                .background(Background),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -174,22 +175,25 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
         }
     } else {
         Scaffold(
-            modifier = Modifier.fillMaxSize().background(FluentSurfaceDark),
-            containerColor = FluentSurfaceDark
+            modifier = Modifier.fillMaxSize().background(Background),
+            containerColor = Background
         ) { paddingValues ->
             LazyColumn(
                 modifier = Modifier.padding(paddingValues).padding(16.dp),
                 state = scrollState
             ) {
                 item {
+                    Spacer(modifier = Modifier.height(40.dp))
                     Text(
-                        text = "Chapter ${chapter ?: "?"}",
-                        color = Color.White,
-                        style = FluentTypography.titleMedium,
-                        modifier = Modifier.fillMaxWidth(),
+                        text = "Rozdział ${chapter ?: "?"}",
+                        color = Color(0xFFEDE6B1),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
                 items(textChunks) { chunk ->
@@ -286,7 +290,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                             .fillMaxWidth()
                             .padding(vertical = 16.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = FluentBackgroundDark,
+                            containerColor = Background,
                             contentColor = FluentSecondaryDark
                         ),
                         shape = RectangleShape
@@ -439,9 +443,9 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                             fontSize = 16.sp
                             textPadding = 8.dp
                             textColor = Color.White
-                            backgroundColor = FluentSurfaceDark
+                            backgroundColor = Background
                             selectedTextColor = Color.White
-                            selectedBackgroundColor = FluentSurfaceDark
+                            selectedBackgroundColor = Background
                             selectedFont = FontFamily.Default
                             userViewModel.toggleTextSettingsDialog()
                         },
@@ -502,31 +506,57 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                 note = ""
                 translationRequested = false
             },
-            title = { Text("Tłumaczenie słowa: $selectedWord") },
+            containerColor = Color(0xFF7B5A44),
+            titleContentColor = Color.White,
+            textContentColor = Color.White,
+            title = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFEDE6B1).copy(alpha = 0.6f), shape = RoundedCornerShape(6.dp))
+                        .padding(12.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "Tłumaczenie słowa:",
+                            color = Color(0xFFEDE6B1),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
+                        )
+                        Text(
+                            text = selectedWord ?: "",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    }
+                }
+            },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (translation.isNotBlank()) cleanTranslation(translation) else "Ładowanie...",
-                            style = FluentTypography.titleMedium,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(end = 8.dp),
-                            textAlign = TextAlign.Left
-                        )
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    }
-
+                    Text(
+                        text = if (translation.isNotBlank()) cleanTranslation(translation) else "Ładowanie...",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.White,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
-
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it },
-                        label = { Text("Twoja notatka") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Twoja notatka", color = Color(0xFFB3A3A3)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFB3A3A3),
+                            unfocusedBorderColor = Color(0xFFB3A3A3),
+                            cursorColor = Color.White
+                        ),
+                        textStyle = LocalTextStyle.current.copy(color = Color.White)
                     )
                 }
             },
@@ -558,7 +588,7 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                             }
                         )
                     }) {
-                        Text("Dodaj")
+                        Text("Dodaj", color = Color(0xFFB3A3A3))
                     }
 
                     TextButton(onClick = {
@@ -567,11 +597,12 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
                         note = ""
                         translationRequested = false
                     }) {
-                        Text("Zamknij")
+                        Text("Zamknij", color = Color(0xFFB3A3A3))
                     }
                 }
             }
         )
+
     }
 
 }

@@ -269,22 +269,38 @@ fun FlashcardSetScreen(
             onDismissRequest = { sortDialogVisible = false },
             confirmButton = {
                 Row {
-                    TextButton(onClick = {
-                        sortDialogVisible = false
-                        selectedSortType = sortType
-                    }) {
-                        Text("Zamknij")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.weight(1f))
                     TextButton(onClick = {
                         sortType = selectedSortType
                         sortDialogVisible = false
                     }) {
-                        Text("Zastosuj")
+                        Text(
+                            text = "Zastosuj",
+                            color = Color(0xFFB3A3A3)
+                        )
                     }
                 }
             },
-            title = { Text("Sortuj fiszki") },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Sortuj fiszki",
+                        color = Color(0xFFEDE6B1),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { sortDialogVisible = false }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Zamknij",
+                            tint = Color(0xFFEDE6B1)
+                        )
+                    }
+                }
+            },
             text = {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -305,5 +321,6 @@ fun FlashcardSetScreen(
             }
         )
     }
+
 
 }

@@ -152,7 +152,7 @@ fun FlashcardRepeatScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF6E4A36))
+                    .background(Background)
                     .padding(top = 65.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
             ) {
                 Spacer(modifier = Modifier.height(10.dp))
@@ -164,7 +164,7 @@ fun FlashcardRepeatScreen(
                     LinearProgressIndicator(
                         progress = currentIndex / totalCards.toFloat(),
                         color = FluentBackgroundDark,
-                        trackColor = FluentOnPrimaryDark,
+                        trackColor = Color(0xFFB3A3A3),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(10.dp)
@@ -350,12 +350,6 @@ fun FlashcardRepeatScreen(
                                 color = FluentBackgroundDark,
                                 fontSize = 18.sp
                             )
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_note),
-                                contentDescription = "Notatka",
-                                tint = FluentBackgroundDark,
-                                modifier = Modifier.size(20.dp)
-                            )
                         }
 
                         Spacer(modifier = Modifier.height(4.dp))
@@ -403,10 +397,17 @@ fun FlashcardRepeatScreen(
                     confirmButton = {},
                     title = {
                         Column {
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.TopEnd
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Text(
+                                    text = "Konfiguracja fiszki",
+                                    fontWeight = FontWeight.Bold,
+                                    color = FluentSecondaryDark,
+                                    modifier = Modifier.weight(1f)
+                                )
                                 IconButton(onClick = { userViewModel.toggleFlashcardSettingsDialog() }) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
@@ -415,11 +416,6 @@ fun FlashcardRepeatScreen(
                                     )
                                 }
                             }
-                            Text(
-                                "Konfiguracja fiszki",
-                                fontWeight = FontWeight.Bold,
-                                color = FluentSecondaryDark
-                            )
                             HorizontalDivider(thickness = 1.dp, color = FluentSecondaryDark)
                         }
                     },

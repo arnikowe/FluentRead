@@ -65,7 +65,8 @@ fun MainScaffold(navController: NavHostController) {
                                 popUpTo(0) { inclusive = true }
                             }
                         }
-                    }
+                    },
+                    currentRoute = navController.currentBackStackEntry?.destination?.route ?: ""
                 )
             }
         }
@@ -120,7 +121,7 @@ fun MainScaffold(navController: NavHostController) {
                                             else R.drawable.ic_bookmark
                                         ),
                                         contentDescription = "Bookmark",
-                                        tint = Color.White,
+                                        tint = Color(0xFFEDE6B1),
                                         modifier = Modifier.size(28.dp)
                                     )
                                 }
@@ -130,7 +131,7 @@ fun MainScaffold(navController: NavHostController) {
                                     Icon(
                                         imageVector = Icons.Default.Settings,
                                         contentDescription = "Ustawienia tekstu",
-                                        tint = Color.White,
+                                        tint = Color(0xFFEDE6B1),
                                         modifier = Modifier.size(28.dp)
                                     )
                                 }
@@ -140,12 +141,12 @@ fun MainScaffold(navController: NavHostController) {
                                 IconButton(onClick = {
                                     userViewModel.toggleFlashcardSettingsDialog()
                                 }) {
-                                    Icon(Icons.Default.Settings, contentDescription = "Ustawienia", tint = Color.White,modifier = Modifier.size(28.dp))
+                                    Icon(Icons.Default.Settings, contentDescription = "Ustawienia", tint = Color(0xFFEDE6B1),modifier = Modifier.size(28.dp))
                                 }
                                 IconButton(onClick = {
                                     userViewModel.goToPreviousFlashcard()
                                 }) {
-                                    Icon(painter = painterResource(R.drawable.ic_previous), contentDescription = "Wstecz", tint = Color.White)
+                                    Icon(painter = painterResource(R.drawable.ic_previous), contentDescription = "Wstecz", tint = Color(0xFFEDE6B1))
 
                                 }
                             }

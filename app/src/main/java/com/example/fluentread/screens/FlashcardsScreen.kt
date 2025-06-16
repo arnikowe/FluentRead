@@ -103,7 +103,7 @@ fun FlashcardsScreen(
     }
 
 
-    Column(modifier = Modifier.fillMaxSize().background(FluentSurfaceDark) .padding(15.dp)) {
+    Column(modifier = Modifier.fillMaxSize().background(Background) .padding(15.dp)) {
         Spacer(modifier = Modifier.height(65.dp))
         OutlinedTextField(
             value = searchQuery,

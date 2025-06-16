@@ -19,6 +19,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.fluentread.R
+import com.example.fluentread.ui.theme.Background
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 import com.example.fluentread.ui.theme.FluentSurfaceDark
@@ -110,7 +111,7 @@ fun AnagramScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -120,8 +121,8 @@ fun AnagramScreen(
 
         LinearProgressIndicator(
             progress = (currentIndex + 1).toFloat() / flashcards.size,
-            color = FluentSecondaryDark,
-            trackColor = Color.Gray,
+            color = FluentBackgroundDark,
+            trackColor = Color(0xFFB3A3A3),
             modifier = Modifier.fillMaxWidth().height(8.dp)
         )
         Text(

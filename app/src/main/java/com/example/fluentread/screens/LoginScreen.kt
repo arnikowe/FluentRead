@@ -109,17 +109,26 @@ fun loginUser(
     navController: NavController,
     onCompletion: () -> Unit
 ) {
+    val context = navController.context
+
     auth.signInWithEmailAndPassword(email, password)
         .addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                Toast.makeText(navController.context, "Zalogowano pomyślnie!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Zalogowano pomyślnie!", Toast.LENGTH_LONG).show()
                 navController.navigate("main")
             } else {
-                Toast.makeText(navController.context, "Błąd logowania: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                val message = when {
+                    task.exception?.message?.contains("password") == true -> "Nieprawidłowe hasło."
+                    task.exception?.message?.contains("no user") == true ||
+                            task.exception?.message?.contains("email") == true -> "Nie znaleziono użytkownika z takim adresem email."
+                    else -> "Błąd logowania: ${task.exception?.message}"
+                }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             }
             onCompletion()
         }
 }
+
 
 
 @Preview(showBackground = true)

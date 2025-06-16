@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.fluentread.R
+import com.example.fluentread.ui.theme.Background
 import com.example.fluentread.ui.theme.FluentBackgroundDark
 import com.example.fluentread.ui.theme.FluentSecondaryDark
 import com.example.fluentread.ui.theme.FluentSurfaceDark
@@ -98,7 +99,7 @@ fun FillGapsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(FluentSurfaceDark)
+            .background(Background)
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
@@ -122,8 +123,8 @@ fun FillGapsScreen(
 
             LinearProgressIndicator(
                 progress = (currentIndex + 1).toFloat() / flashcards.size,
-                color = FluentSecondaryDark,
-                trackColor = Color.Gray,
+                color = FluentBackgroundDark,
+                trackColor = Color(0xFFB3A3A3),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)

@@ -45,8 +45,9 @@ fun CommonBackground(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom
         ) {
+            Spacer(modifier = Modifier.height(32.dp))
             Image(
-                painter = painterResource(id = R.drawable.bookworm),
+                painter = painterResource(id = R.drawable.logoznapisem),
                 contentDescription = "Header",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -120,7 +121,7 @@ fun PasswordField(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White, shape = RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 8.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             BasicTextField(
@@ -130,7 +131,7 @@ fun PasswordField(
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 modifier = Modifier
                     .weight(1f)
-                    .padding(8.dp)
+                    .padding(4.dp)
             )
             IconButton(onClick = onVisibilityChange) {
                 Icon(

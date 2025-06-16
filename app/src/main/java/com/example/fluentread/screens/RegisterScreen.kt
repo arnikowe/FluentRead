@@ -104,6 +104,9 @@ fun registerUser(
     navController: NavController,
     onCompletion: () -> Unit
 ) {
+    val context = navController.context
+
+
     auth.createUserWithEmailAndPassword(email, password)
         .addOnCompleteListener { task ->
             if (task.isSuccessful) {
@@ -118,22 +121,31 @@ fun registerUser(
                     db.collection("users").document(user.uid)
                         .set(userData, SetOptions.merge())
                         .addOnSuccessListener {
-                            Toast.makeText(navController.context, "Rejestracja zakończona sukcesem!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Rejestracja zakończona sukcesem!", Toast.LENGTH_LONG).show()
                             navController.navigate("login")
                         }
                         .addOnFailureListener { e ->
-                            Toast.makeText(navController.context, "Błąd zapisu danych: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Nie udało się zapisać danych: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                         .addOnCompleteListener {
                             onCompletion()
                         }
+                } else {
+                    Toast.makeText(context, "Nie udało się pobrać informacji o użytkowniku.", Toast.LENGTH_LONG).show()
+                    onCompletion()
                 }
             } else {
-                Toast.makeText(navController.context, "Błąd rejestracji: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                val message = when {
+                    task.exception?.message?.contains("email") == true -> "Ten email jest już zajęty lub nieprawidłowy."
+                    task.exception?.message?.contains("password") == true -> "Hasło jest za krótkie (min. 6 znaków)."
+                    else -> "Błąd rejestracji: ${task.exception?.message}"
+                }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 onCompletion()
             }
         }
 }
+
 
 @Preview(showBackground = true)
 @Composable
