@@ -26,6 +26,10 @@ import org.json.JSONObject
 import java.io.IOException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 open class UserViewModel : ViewModel() {
     open val db = FirebaseFirestore.getInstance()
@@ -1019,6 +1023,215 @@ open class UserViewModel : ViewModel() {
                 onResult(emptyList())
             }
     }
+    fun incrementFlashcardRepetitionCount(userId: String) {
+        val db = FirebaseFirestore.getInstance()
 
+        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+        val docRef = db.collection("users").document(userId)
+            .collection("flashcardStats").document(currentDate)
+
+        docRef.set(
+            mapOf("count" to FieldValue.increment(1)),
+            com.google.firebase.firestore.SetOptions.merge()
+        )
+    }
+    fun getFlashcardStatsLastNDays(
+        userId: String,
+        days: Int,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        val calendar = Calendar.getInstance()
+        val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateThresholds = (0 until days).map {
+            calendar.add(Calendar.DAY_OF_YEAR, -if (it == 0) 0 else 1)
+            dateFormatter.format(calendar.time)
+        }.reversed()
+
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("flashcardStats")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val result = mutableMapOf<String, Int>()
+                for (date in dateThresholds) {
+                    val count = snapshot.documents.find { it.id == date }?.getLong("count")?.toInt() ?: 0
+                    result[date] = count
+                }
+                onResult(result)
+            }
+            .addOnFailureListener { onResult(emptyMap()) }
+    }
+    fun getFlashcardStatsInMonth(
+        userId: String,
+        year: Int,
+        month: Int,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("flashcardStats")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val result = mutableMapOf<String, Int>()
+                for (doc in snapshot.documents) {
+                    val date = doc.id
+                    val count = doc.getLong("count")?.toInt() ?: 0
+                    val parts = date.split("-")
+                    if (parts.size == 3) {
+                        val y = parts[0].toIntOrNull()
+                        val m = parts[1].toIntOrNull()
+                        if (y == year && m == month) {
+                            result[date] = count
+                        }
+                    }
+                }
+                onResult(result.toSortedMap())
+            }
+            .addOnFailureListener {
+                onResult(emptyMap())
+            }
+    }
+
+    fun getFlashcardStatsInYear(
+        userId: String,
+        year: Int,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("flashcardStats")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val result = mutableMapOf<String, Int>()
+                for (doc in snapshot.documents) {
+                    val date = doc.id
+                    val count = doc.getLong("count")?.toInt() ?: 0
+                    val parts = date.split("-")
+                    if (parts.size == 3) {
+                        val y = parts[0].toIntOrNull()
+                        val m = parts[1].toIntOrNull()
+                        if (y == year && m != null) {
+                            val key = m.toString().padStart(2, '0')
+                            result[key] = result.getOrDefault(key, 0) + count
+                        }
+                    }
+                }
+                onResult(result.toSortedMap())
+            }
+            .addOnFailureListener {
+                onResult(emptyMap())
+            }
+    }
+
+    fun getReadingStatsBetween(
+        userId: String,
+        startDate: Date,
+        endDate: Date,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        getTotalDailyReadingStats(userId) { fullMap ->
+            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val filtered = fullMap.filter { (dateStr, _) ->
+                try {
+                    val date = formatter.parse(dateStr)
+                    date != null && date.after(startDate) && date.before(endDate) || date == startDate || date == endDate
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            onResult(filtered.toSortedMap())
+        }
+    }
+    fun getFlashcardStatsBetween(
+        userId: String,
+        startDate: Date,
+        endDate: Date,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        db.collection("users").document(userId)
+            .collection("flashcardStats")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val result = mutableMapOf<String, Int>()
+                for (doc in snapshot.documents) {
+                    val dateStr = doc.id
+                    val count = doc.getLong("count")?.toInt() ?: 0
+                    try {
+                        val date = dateFormatter.parse(dateStr)
+                        if (date != null && (date in startDate..endDate)) {
+                            result[dateStr] = count
+                        }
+                    } catch (_: Exception) { }
+                }
+                onResult(result.toSortedMap())
+            }
+            .addOnFailureListener {
+                onResult(emptyMap())
+            }
+    }
+    fun getTotalDailyReadingStatsInMonth(
+        userId: String,
+        year: Int,
+        month: Int,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                val dayCounts = mutableMapOf<String, Int>()
+                for (doc in querySnapshot.documents) {
+                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
+                    for (timestamp in chaptersMap.values) {
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+                        val y = calendar.get(java.util.Calendar.YEAR)
+                        val m = calendar.get(java.util.Calendar.MONTH) + 1
+                        val d = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+
+                        if (y == year && m == month) {
+                            val date = "%04d-%02d-%02d".format(y, m, d)
+                            dayCounts[date] = (dayCounts[date] ?: 0) + 1
+                        }
+                    }
+                }
+                onResult(dayCounts.toSortedMap())
+            }
+            .addOnFailureListener {
+                onResult(emptyMap())
+            }
+    }
+    fun getMonthlyReadingStatsInYear(
+        userId: String,
+        year: Int,
+        onResult: (Map<String, Int>) -> Unit
+    ) {
+        val monthCounts = (1..12).associate { "%02d".format(it) to 0 }.toMutableMap()
+
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("readProgress")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                for (doc in querySnapshot.documents) {
+                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
+                    for (timestamp in chaptersMap.values) {
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+                        val y = calendar.get(java.util.Calendar.YEAR)
+                        val m = "%02d".format(calendar.get(java.util.Calendar.MONTH) + 1)
+                        if (y == year) {
+                            monthCounts[m] = monthCounts[m]!! + 1
+                        }
+                    }
+                }
+                onResult(monthCounts.toSortedMap())
+            }
+            .addOnFailureListener {
+                onResult(emptyMap())
+            }
+    }
 
 }

@@ -422,7 +422,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                 }
             )
         }
-
+        composable("statistics_screen") {
+            StatisticsScreen(userViewModel = userViewModel)
+        }
 
     }
 }

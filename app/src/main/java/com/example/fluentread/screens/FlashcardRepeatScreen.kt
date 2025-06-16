@@ -231,12 +231,14 @@ fun FlashcardRepeatScreen(
                                         offsetX.floatValue > 200 -> {
                                             Log.d("FlashcardSwipe", "Swipe RIGHT (know)")
                                             userViewModel.incrementKnow()
+                                            userViewModel.incrementFlashcardRepetitionCount(userId)
                                             userViewModel.goToNextFlashcard(lastIndex)
                                         }
 
                                         offsetX.floatValue < -200 -> {
                                             Log.d("FlashcardSwipe", "Swipe LEFT (don't know)")
                                             userViewModel.incrementDontKnow()
+                                            userViewModel.incrementFlashcardRepetitionCount(userId)
                                             userViewModel.goToNextFlashcard(lastIndex)
                                         }
 

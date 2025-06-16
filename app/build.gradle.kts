@@ -87,6 +87,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation(libs.translate)
     implementation(libs.generativeai)
+    implementation(libs.play.services.maps)
 
     // Debug tools
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -96,6 +97,13 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.4.3")
+
+    //Chart
+    implementation("com.patrykandpatrick.vico:core:1.14.0")
+    implementation("com.patrykandpatrick.vico:compose:1.14.0")
+    implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
+
+
 }
 
 
