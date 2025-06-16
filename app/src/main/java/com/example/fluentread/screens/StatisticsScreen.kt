@@ -64,6 +64,8 @@ fun StatisticsScreen(userViewModel: UserViewModel) {
     var selectedYearBooks by remember { mutableStateOf<Int?>(null) }
     var selectedYearFlashcards by remember { mutableStateOf<Int?>(null) }
 
+    var streakDays by remember { mutableStateOf(0) }
+
     LaunchedEffect(Unit) {
         val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -78,6 +80,11 @@ fun StatisticsScreen(userViewModel: UserViewModel) {
         weekRangeFlashcards = start to end
         selectedYearBooks = currentYear()
         selectedYearFlashcards = currentYear()
+
+        userViewModel.getReadingStreak(userId) {
+            streakDays = it
+        }
+
     }
 
     fun loadDataForBooks() {
@@ -167,18 +174,20 @@ fun StatisticsScreen(userViewModel: UserViewModel) {
             colors = CardDefaults.cardColors(containerColor = FluentBackgroundDark)
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_streak),
-                    contentDescription = "Streak Icon"
+                    contentDescription = "Streak Icon",
+                    tint = Color.Unspecified
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "5-dniowy streak nauki!",
+                    text = "${streakDays}-dniowy streak nauki!",
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFEDE6B1)
+                    color = Color(0xFFEDE6B1),
+                    fontSize = 22.sp
                 )
             }
         }
@@ -502,8 +511,12 @@ fun PeriodSelector(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (isSelected) Color(0xFFB3A3A3) else Color.Transparent)
+                            .padding(0.dp,0.dp)
+                            .background(if (isSelected) Color(0xFFB3A3A3) else Color.Transparent),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     )
+
+
                 }
             }
         }

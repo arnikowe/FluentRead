@@ -14,12 +14,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.fluentread.R
@@ -42,6 +44,8 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
     var chaptersRead by remember { mutableStateOf<List<Int>>(emptyList()) }
     var totalChapters by remember { mutableStateOf(1) }
 
+    var streakDays by remember { mutableStateOf(0) }
+
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentBooks()
     }
@@ -49,6 +53,9 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
     LaunchedEffect(Unit) {
         if (userId != null) {
             try {
+                userViewModel.getReadingStreak(userId) {
+                    streakDays = it
+                }
                 val userDoc = db.collection("users").document(userId).get().await()
                 val lastReadRef = userDoc.get("lastRead") as? DocumentReference
 
@@ -97,10 +104,10 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
             modifier = Modifier.padding(horizontal = 4.dp)
         )
 
+
         Spacer(modifier = Modifier.height(8.dp))
         DividerLine()
         Spacer(modifier = Modifier.height(16.dp))
-
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -146,7 +153,31 @@ fun MainScreen(navController: NavController, userViewModel: UserViewModel) {
                 }
             }
         }
-
+        Spacer(modifier = Modifier.height(8.dp))
+        DividerLine()
+        Spacer(modifier = Modifier.height(16.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = FluentBackgroundDark)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_streak),
+                    contentDescription = "Streak Icon",
+                    tint = Color.Unspecified
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "${streakDays}-dniowy streak nauki!",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFEDE6B1),
+                    fontSize = 22.sp
+                )
+            }
+        }
         CurrentReadingBooks(navController = navController, userViewModel = userViewModel, sourceScreen = "main")
 
         Spacer(modifier = Modifier.height(24.dp))

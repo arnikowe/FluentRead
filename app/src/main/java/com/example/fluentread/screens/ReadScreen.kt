@@ -267,10 +267,12 @@ fun ReadScreen(bookId: String?, chapter: String?, userViewModel: UserViewModel, 
 
                                         if (isLastChapter) {
                                             userViewModel.addToFinished(bookId)
+                                            userViewModel.incrementTodayReadingCount(userId)
                                             userViewModel.removeBookFromCurrentRead(bookId)
                                             navController.navigate("bookDetails/$bookId")
                                         } else {
                                             userViewModel.saveChapterAsRead(userId, bookId, chapter.toInt())
+                                            userViewModel.incrementTodayReadingCount(userId)
                                             userViewModel.updateLastRead(userId, bookId, nextChapter)
                                             navController.navigate("screen_read?bookId=$bookId&chapter=$nextChapter")
                                         }

@@ -587,118 +587,108 @@ open class UserViewModel : ViewModel() {
     ) {
         val db = FirebaseFirestore.getInstance()
         db.collection("users").document(userId)
-            .collection("readProgress")
+            .collection("readingStats")
             .get()
-            .addOnSuccessListener { querySnapshot ->
-                var totalCount = 0
-                for (doc in querySnapshot.documents) {
-                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
-                    totalCount += chaptersMap.values.count { timestamp ->
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-                        calendar.get(java.util.Calendar.YEAR) == year &&
-                                (calendar.get(java.util.Calendar.MONTH) + 1) == month
-                    }
+            .addOnSuccessListener { snapshot ->
+                val total = snapshot.documents.sumOf { doc ->
+                    val parts = doc.id.split("-")
+                    if (parts.size == 3 && parts[0].toIntOrNull() == year && parts[1].toIntOrNull() == month) {
+                        doc.getLong("count")?.toInt() ?: 0
+                    } else 0
                 }
-                onResult(totalCount)
+                onResult(total)
             }
             .addOnFailureListener {
                 onResult(0)
             }
     }
+
     fun getTotalReadChaptersInYear(
         userId: String,
         year: Int,
         onResult: (Int) -> Unit
     ) {
-        val db = FirebaseFirestore.getInstance()
         db.collection("users").document(userId)
-            .collection("readProgress")
+            .collection("readingStats")
             .get()
-            .addOnSuccessListener { querySnapshot ->
-                var totalCount = 0
-                for (doc in querySnapshot.documents) {
-                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
-                    totalCount += chaptersMap.values.count { timestamp ->
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-                        calendar.get(java.util.Calendar.YEAR) == year
-                    }
+            .addOnSuccessListener { snapshot ->
+                val total = snapshot.documents.sumOf { doc ->
+                    val parts = doc.id.split("-")
+                    if (parts.size == 3 && parts[0].toIntOrNull() == year) {
+                        doc.getLong("count")?.toInt() ?: 0
+                    } else 0
                 }
-                onResult(totalCount)
+                onResult(total)
             }
             .addOnFailureListener {
                 onResult(0)
             }
     }
+
     fun getTotalDailyReadingStats(
         userId: String,
         onResult: (Map<String, Int>) -> Unit
     ) {
-        val db = FirebaseFirestore.getInstance()
         db.collection("users").document(userId)
-            .collection("readProgress")
+            .collection("readingStats")
             .get()
-            .addOnSuccessListener { querySnapshot ->
-                val dayCounts = mutableMapOf<String, Int>()
-                for (doc in querySnapshot.documents) {
-                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
-                    for (timestamp in chaptersMap.values) {
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-                        val date = "%04d-%02d-%02d".format(
-                            calendar.get(java.util.Calendar.YEAR),
-                            calendar.get(java.util.Calendar.MONTH) + 1,
-                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
-                        )
-                        dayCounts[date] = (dayCounts[date] ?: 0) + 1
-                    }
+            .addOnSuccessListener { snapshot ->
+                val result = snapshot.documents.associate { doc ->
+                    doc.id to (doc.getLong("count")?.toInt() ?: 0)
                 }
-                onResult(dayCounts)
+                onResult(result.toSortedMap())
             }
             .addOnFailureListener {
                 onResult(emptyMap())
             }
     }
-    fun getReadingStreak(
-        userId: String,
-        onResult: (Int) -> Unit
-    ) {
+
+    fun incrementTodayReadingCount(userId: String) {
+        val db = FirebaseFirestore.getInstance()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val todayDate = dateFormat.format(Date())
+
+        val statRef = db.collection("users")
+            .document(userId)
+            .collection("readingStats")
+            .document(todayDate)
+
+        statRef.get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.exists()) {
+                    statRef.update("count", FieldValue.increment(1))
+                } else {
+                    statRef.set(mapOf("count" to 1))
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("ReadingStats", "Błąd przy aktualizacji stats: ${e.localizedMessage}")
+            }
+    }
+
+    fun getReadingStreak(userId: String, onResult: (Int) -> Unit) {
         val db = FirebaseFirestore.getInstance()
         db.collection("users").document(userId)
-            .collection("readProgress")
+            .collection("readingStats")
             .get()
-            .addOnSuccessListener { querySnapshot ->
-                val readingDays = mutableSetOf<String>()
-
-                for (doc in querySnapshot.documents) {
-                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
-                    for (timestamp in chaptersMap.values) {
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-                        val date = "%04d-%02d-%02d".format(
-                            calendar.get(java.util.Calendar.YEAR),
-                            calendar.get(java.util.Calendar.MONTH) + 1,
-                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
-                        )
-                        readingDays.add(date)
-                    }
-                }
+            .addOnSuccessListener { snapshot ->
+                val readingDays = snapshot.documents.map { it.id }.toSet()
 
                 if (readingDays.isEmpty()) {
                     onResult(0)
                     return@addOnSuccessListener
                 }
 
-                val today = java.util.Calendar.getInstance()
+                val calendar = Calendar.getInstance()
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 var streak = 0
 
                 while (true) {
-                    val date = "%04d-%02d-%02d".format(
-                        today.get(java.util.Calendar.YEAR),
-                        today.get(java.util.Calendar.MONTH) + 1,
-                        today.get(java.util.Calendar.DAY_OF_MONTH)
-                    )
+                    val date = dateFormat.format(calendar.time)
 
                     if (readingDays.contains(date)) {
                         streak++
-                        today.add(java.util.Calendar.DAY_OF_MONTH, -1)
+                        calendar.add(Calendar.DAY_OF_MONTH, -1)
                     } else {
                         break
                     }
@@ -710,75 +700,7 @@ open class UserViewModel : ViewModel() {
                 onResult(0)
             }
     }
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun getLongestReadingStreak(
-        userId: String,
-        onResult: (Int) -> Unit
-    ) {
-        val db = FirebaseFirestore.getInstance()
-        db.collection("users").document(userId)
-            .collection("readProgress")
-            .get()
-            .addOnSuccessListener { querySnapshot ->
-                val readingDays = mutableSetOf<String>()
 
-                for (doc in querySnapshot.documents) {
-                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
-                    for (timestamp in chaptersMap.values) {
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-                        val date = "%04d-%02d-%02d".format(
-                            calendar.get(java.util.Calendar.YEAR),
-                            calendar.get(java.util.Calendar.MONTH) + 1,
-                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
-                        )
-                        readingDays.add(date)
-                    }
-                }
-
-                if (readingDays.isEmpty()) {
-                    onResult(0)
-                    return@addOnSuccessListener
-                }
-
-                val sortedDays = readingDays.map {
-                    java.time.LocalDate.parse(it)
-                }.sorted()
-
-                var maxStreak = 1
-                var currentStreak = 1
-
-                for (i in 1 until sortedDays.size) {
-                    val prev = sortedDays[i - 1]
-                    val curr = sortedDays[i]
-
-                    if (prev.plusDays(1) == curr) {
-                        currentStreak++
-                        if (currentStreak > maxStreak) {
-                            maxStreak = currentStreak
-                        }
-                    } else {
-                        currentStreak = 1
-                    }
-                }
-
-                onResult(maxStreak)
-            }
-            .addOnFailureListener {
-                onResult(0)
-            }
-    }
-    fun getStreakBadge(maxStreak: Int): String {
-        return when {
-            maxStreak >= 100 -> "🏆 Legendarny streak! 100+ dni!"
-            maxStreak >= 60 -> "🏆 Mistrz czytania! 60+ dni!"
-            maxStreak >= 30 -> "🔥 Mega streak! 30+ dni!"
-            maxStreak >= 14 -> "🔥🔥🔥 Super streak! 14+ dni!"
-            maxStreak >= 7 -> "🔥 Świetny start! 7 dni!"
-            maxStreak >= 3 -> "📖 Dobry początek! 3 dni!"
-            maxStreak >= 1 -> "📖 Pierwszy dzień!"
-            else -> "❗️ Jeszcze brak streaka"
-        }
-    }
     fun removeBookFromCurrentRead(bookId: String) {
         val userId = this.userId ?: return
         val userDoc = db.collection("users").document(userId)
@@ -1178,32 +1100,25 @@ open class UserViewModel : ViewModel() {
         month: Int,
         onResult: (Map<String, Int>) -> Unit
     ) {
-        val db = FirebaseFirestore.getInstance()
         db.collection("users").document(userId)
-            .collection("readProgress")
+            .collection("readingStats")
             .get()
-            .addOnSuccessListener { querySnapshot ->
-                val dayCounts = mutableMapOf<String, Int>()
-                for (doc in querySnapshot.documents) {
-                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
-                    for (timestamp in chaptersMap.values) {
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-                        val y = calendar.get(java.util.Calendar.YEAR)
-                        val m = calendar.get(java.util.Calendar.MONTH) + 1
-                        val d = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-
-                        if (y == year && m == month) {
-                            val date = "%04d-%02d-%02d".format(y, m, d)
-                            dayCounts[date] = (dayCounts[date] ?: 0) + 1
-                        }
-                    }
-                }
-                onResult(dayCounts.toSortedMap())
+            .addOnSuccessListener { snapshot ->
+                val result = snapshot.documents.mapNotNull { doc ->
+                    val parts = doc.id.split("-")
+                    val y = parts.getOrNull(0)?.toIntOrNull()
+                    val m = parts.getOrNull(1)?.toIntOrNull()
+                    if (y == year && m == month) {
+                        doc.id to (doc.getLong("count")?.toInt() ?: 0)
+                    } else null
+                }.toMap()
+                onResult(result.toSortedMap())
             }
             .addOnFailureListener {
                 onResult(emptyMap())
             }
     }
+
     fun getMonthlyReadingStatsInYear(
         userId: String,
         year: Int,
@@ -1211,20 +1126,17 @@ open class UserViewModel : ViewModel() {
     ) {
         val monthCounts = (1..12).associate { "%02d".format(it) to 0 }.toMutableMap()
 
-        val db = FirebaseFirestore.getInstance()
         db.collection("users").document(userId)
-            .collection("readProgress")
+            .collection("readingStats")
             .get()
-            .addOnSuccessListener { querySnapshot ->
-                for (doc in querySnapshot.documents) {
-                    val chaptersMap = doc.get("chaptersRead") as? Map<String, Long> ?: continue
-                    for (timestamp in chaptersMap.values) {
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-                        val y = calendar.get(java.util.Calendar.YEAR)
-                        val m = "%02d".format(calendar.get(java.util.Calendar.MONTH) + 1)
-                        if (y == year) {
-                            monthCounts[m] = monthCounts[m]!! + 1
-                        }
+            .addOnSuccessListener { snapshot ->
+                snapshot.documents.forEach { doc ->
+                    val parts = doc.id.split("-")
+                    val y = parts.getOrNull(0)?.toIntOrNull()
+                    val m = parts.getOrNull(1)?.toIntOrNull()
+                    if (y == year && m != null) {
+                        val key = "%02d".format(m)
+                        monthCounts[key] = monthCounts.getOrDefault(key, 0) + (doc.getLong("count")?.toInt() ?: 0)
                     }
                 }
                 onResult(monthCounts.toSortedMap())
@@ -1233,5 +1145,6 @@ open class UserViewModel : ViewModel() {
                 onResult(emptyMap())
             }
     }
+
 
 }
